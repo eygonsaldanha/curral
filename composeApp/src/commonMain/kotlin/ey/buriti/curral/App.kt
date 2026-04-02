@@ -1,47 +1,40 @@
 package ey.buriti.curral
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.safeContentPadding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import org.jetbrains.compose.resources.painterResource
-
-import curral.composeapp.generated.resources.Res
-import curral.composeapp.generated.resources.compose_multiplatform
+import ey.buriti.curral.navigation.Screen
+import ey.buriti.curral.ui.components.CurralBottomBar
+import ey.buriti.curral.ui.screens.AnimaisScreen
+import ey.buriti.curral.ui.screens.EstoqueScreen
+import ey.buriti.curral.ui.screens.HomeScreen
+import ey.buriti.curral.ui.screens.ProducaoScreen
 
 @Composable
 @Preview
 fun App() {
     MaterialTheme {
-        var showContent by remember { mutableStateOf(false) }
-        Column(
-            modifier = Modifier
-                .background(MaterialTheme.colorScheme.primaryContainer)
-                .safeContentPadding()
-                .fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Button(onClick = { showContent = !showContent }) {
-                Text("Click me!")
+        var currentScreen by remember { mutableStateOf(Screen.HOME) }
+
+        Scaffold(
+            bottomBar = {
+                CurralBottomBar(
+                    currentScreen = currentScreen,
+                    onScreenSelected = { currentScreen = it },
+                    onFabClick = { /* TODO: abrir tela de registro rápido */ }
+                )
             }
-            AnimatedVisibility(showContent) {
-                val greeting = remember { Greeting().greet() }
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Image(painterResource(Res.drawable.compose_multiplatform), null)
-                    Text("Compose: $greeting")
+        ) { padding ->
+            Box(modifier = Modifier.padding(padding)) {
+                when (currentScreen) {
+                    Screen.HOME -> HomeScreen()
+                    Screen.ANIMAIS -> AnimaisScreen()
+                    Screen.PRODUCAO -> ProducaoScreen()
+                    Screen.ESTOQUE -> EstoqueScreen()
                 }
             }
         }

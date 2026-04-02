@@ -42,6 +42,8 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+            implementation(compose.material)       // provides androidx.compose.material.icons.*
+            implementation(compose.materialIconsExtended) // Pets, WaterDrop, Inventory2, etc.
             implementation(projects.shared)
         }
         commonTest.dependencies {
