@@ -24,3 +24,18 @@ internal fun String.toIsoDateOrNull(): String? {
         null
     }
 }
+
+internal fun sanitizeDecimalInput(value: String): String {
+    var dotUsed = false
+    return buildString {
+        value.forEach { c ->
+            when {
+                c.isDigit() -> append(c)
+                c == '.' && !dotUsed -> {
+                    append(c)
+                    dotUsed = true
+                }
+            }
+        }
+    }
+}

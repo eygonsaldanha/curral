@@ -40,6 +40,7 @@ import ey.buriti.curral.model.AnimalSex
 import ey.buriti.curral.model.AnimalStatus
 import ey.buriti.curral.model.AnimalType
 import ey.buriti.curral.platform.getCurrentDate
+import ey.buriti.curral.ui.screens.sanitizeDecimalInput
 import ey.buriti.curral.ui.screens.toIsoDateOrNull
 import ey.buriti.curral.ui.screens.statusColors
 import ey.buriti.curral.ui.theme.CurralColors
@@ -185,7 +186,7 @@ fun AnimalFormSheetContent(
             AnimalFormField("Peso (kg)", modifier = Modifier.weight(1f)) {
                 OutlinedTextField(
                     value = weight,
-                    onValueChange = { weight = it.filter { c -> c.isDigit() || c == '.' } },
+                    onValueChange = { weight = sanitizeDecimalInput(it) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
                     placeholder = { Text("500") },

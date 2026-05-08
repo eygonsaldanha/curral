@@ -417,7 +417,7 @@ private fun CalendarSection() {
     var month by remember { mutableStateOf(today.month) }
     var year by remember { mutableStateOf(today.year) }
     var selectedDay by remember { mutableStateOf(today.day) }
-    val selectedDate = if (selectedDay in 1..daysInMonth(year, month)) isoDate(year, month, selectedDay) else null
+    val selectedDate = if (selectedDay in 1..daysInMonth(year, month)) toIsoDateString(year, month, selectedDay) else null
     val dayEvents = selectedDate?.let(AnimalRepository::getEventsForDay).orEmpty()
     val dayTasks = selectedDate?.let(AnimalRepository::getTasksForDay).orEmpty()
 
@@ -500,8 +500,8 @@ private fun CalendarSection() {
                             val currentDay = dayCounter
                             val isToday = currentDay == today.day && month == today.month && year == today.year
                             val isSelected = currentDay == selectedDay
-                            val hasItems = AnimalRepository.getEventsForDay(isoDate(year, month, currentDay)).isNotEmpty() ||
-                                AnimalRepository.getTasksForDay(isoDate(year, month, currentDay)).isNotEmpty()
+                            val hasItems = AnimalRepository.getEventsForDay(toIsoDateString(year, month, currentDay)).isNotEmpty() ||
+                                AnimalRepository.getTasksForDay(toIsoDateString(year, month, currentDay)).isNotEmpty()
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
@@ -634,4 +634,5 @@ private fun buildEventSubtitle(event: AnimalEvent): String {
     return listOf(target, details).filter { it.isNotBlank() }.joinToString(" — ")
 }
 
-private fun isoDate(year: Int, month: Int, day: Int): String = PlatformDate(year = year, month = month, day = day).toIsoDateString()
+private fun toIsoDateString(year: Int, month: Int, day: Int): String =
+    PlatformDate(year = year, month = month, day = day).toIsoDateString()

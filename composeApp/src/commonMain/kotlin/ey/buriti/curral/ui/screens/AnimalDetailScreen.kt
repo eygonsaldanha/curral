@@ -539,7 +539,7 @@ private fun WeightDialog(animal: Animal, onDismiss: () -> Unit) {
                 Text("Registrar novo peso para ${animal.name}.")
                 androidx.compose.material3.OutlinedTextField(
                     value = weight,
-                    onValueChange = { weight = it.filter { c -> c.isDigit() || c == '.' } },
+                    onValueChange = { weight = sanitizeDecimalInput(it) },
                     label = { Text("Peso (kg)") },
                     singleLine = true,
                 )
