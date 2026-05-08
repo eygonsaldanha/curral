@@ -1,6 +1,7 @@
 package ey.buriti.curral
 
 import ey.buriti.curral.data.AnimalRepository
+import ey.buriti.curral.data.GestationResultType
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
@@ -44,7 +45,7 @@ class ComposeAppCommonTest {
     fun registerGestationResultClearsGestationAndCreatesEvent() {
         AnimalRepository.registerGestationResult(
             animalId = "a1",
-            resultLabel = "Parto concluído",
+            resultType = GestationResultType.PARTO_CONCLUIDO,
             date = "2026-05-08",
             notes = "Bezerro saudável",
         )

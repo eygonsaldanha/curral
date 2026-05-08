@@ -565,9 +565,6 @@ private fun EventoFormContent(
                 val type = selectedType ?: return@Button
                 val animalId = if (assignToAnimal) (selectedAnimalId ?: return@Button) else ""
                 val groupId = if (!assignToAnimal) selectedGroupId else null
-                val fullDescription = listOf(title.trim(), description.trim())
-                    .filter { it.isNotBlank() }
-                    .joinToString(" — ")
                 AnimalRepository.addEvent(
                     AnimalEvent(
                         id = AnimalRepository.generateEventId(),
@@ -575,7 +572,7 @@ private fun EventoFormContent(
                         type = type,
                         date = dateToIso(date),
                         time = time,
-                        notes = fullDescription,
+                        notes = formatEventNotes(title, description),
                         groupId = groupId,
                     )
                 )
@@ -590,6 +587,12 @@ private fun EventoFormContent(
             Text("Salvar", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         }
     }
+}
+
+private fun formatEventNotes(title: String, description: String): String {
+    return listOf(title.trim(), description.trim())
+        .filter { it.isNotBlank() }
+        .joinToString(" — ")
 }
 
 // ─── Estoque Form ──────────────────────────────────────────────────────────────

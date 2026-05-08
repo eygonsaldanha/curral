@@ -18,6 +18,12 @@ data class AgendaTask(
     val notes: String = "",
 )
 
+enum class GestationResultType(val label: String, val eventType: EventType) {
+    PARTO_CONCLUIDO("Parto concluído", EventType.NASCIMENTO_FILHOTE),
+    PERDA_GESTACIONAL("Perda gestacional", EventType.OUTRO),
+    ACOMPANHAMENTO("Acompanhamento finalizado", EventType.OUTRO),
+}
+
 object AnimalRepository {
 
     private var nextAnimalId = 100
@@ -246,9 +252,9 @@ object AnimalRepository {
         }
     }
 
-    fun registerGestationResult(animalId: String, resultLabel: String, date: String, notes: String) {
+    fun registerGestationResult(animalId: String, resultType: GestationResultType, date: String, notes: String) {
         val animal = getAnimal(animalId) ?: return
-        val summary = listOf("Resultado da gestação: $resultLabel", notes.trim())
+        val summary = listOf("Resultado da gestação: ${resultType.label}", notes.trim())
             .filter { it.isNotBlank() }
             .joinToString(" — ")
 
@@ -256,7 +262,7 @@ object AnimalRepository {
             AnimalEvent(
                 id = generateEventId(),
                 animalId = animalId,
-                type = if (resultLabel.contains("Parto", ignoreCase = true)) EventType.NASCIMENTO_FILHOTE else EventType.OUTRO,
+                type = resultType.eventType,
                 date = date,
                 notes = summary,
             ),

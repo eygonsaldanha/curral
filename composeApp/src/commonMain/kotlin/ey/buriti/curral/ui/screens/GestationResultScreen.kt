@@ -1,5 +1,6 @@
 package ey.buriti.curral.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ey.buriti.curral.data.AnimalRepository
+import ey.buriti.curral.data.GestationResultType
 import ey.buriti.curral.ui.theme.CurralColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,7 +44,7 @@ fun GestationResultScreen(
     modifier: Modifier = Modifier,
 ) {
     val animal = AnimalRepository.getAnimal(animalId) ?: return
-    var result by remember { mutableStateOf("Parto concluído") }
+    var resultType by remember { mutableStateOf(GestationResultType.PARTO_CONCLUIDO) }
     var date by remember { mutableStateOf("08/05/2026") }
     var notes by remember { mutableStateOf("") }
 
@@ -71,12 +73,32 @@ fun GestationResultScreen(
             Surface(shape = RoundedCornerShape(16.dp), color = Color.White) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Resultado da gestação de ${animal.name}", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = CurralColors.TextPrimary)
-                    OutlinedTextField(value = result, onValueChange = { result = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Resultado") })
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GestationResultType.entries.forEach { option ->
+                            val selected = option == resultType
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (selected) CurralColors.FabGreen else CurralColors.Background,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { resultType = option },
+                            ) {
+                                Text(
+                                    text = option.label,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    color = if (selected) Color.White else CurralColors.TextPrimary,
+                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                )
+                            }
+                        }
+                    }
                     OutlinedTextField(value = date, onValueChange = { date = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Data") })
                     OutlinedTextField(value = notes, onValueChange = { notes = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Observações") })
                     Button(
                         onClick = {
-                            AnimalRepository.registerGestationResult(animalId, result, date.toIsoDate(), notes)
+                            AnimalRepository.registerGestationResult(animalId, resultType, date.toIsoDate(), notes)
                             onBack()
                         },
                         modifier = Modifier.fillMaxWidth(),

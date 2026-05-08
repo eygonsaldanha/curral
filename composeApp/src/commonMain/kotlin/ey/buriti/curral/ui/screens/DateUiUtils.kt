@@ -1,12 +1,8 @@
 package ey.buriti.curral.ui.screens
 
 internal fun formatDate(date: String): String {
-    return try {
-        val parts = date.split("-")
-        "${parts[2]}/${parts[1]}/${parts[0]}"
-    } catch (_: Exception) {
-        date
-    }
+    val parts = date.split("-")
+    return if (parts.size == 3) "${parts[2]}/${parts[1]}/${parts[0]}" else date
 }
 
 internal fun String.toIsoDate(): String {
