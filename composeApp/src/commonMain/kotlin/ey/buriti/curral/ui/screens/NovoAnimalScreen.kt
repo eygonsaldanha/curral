@@ -56,7 +56,7 @@ fun NovoAnimalScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = CurralColors.Surface),
             )
         },
         containerColor = CurralColors.Background,
@@ -123,7 +123,7 @@ fun NovoAnimalScreen(
                             val sel = sex == selectedSex
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
-                                color = if (sel) CurralColors.FabGreen else Color.White,
+                                color = if (sel) CurralColors.FabGreen else CurralColors.Surface,
                                 modifier = Modifier.weight(1f).clickable { selectedSex = sex },
                             ) {
                                 Text(
@@ -148,7 +148,7 @@ fun NovoAnimalScreen(
                                 val sel = selectedStatus == st
                                 Surface(
                                     shape = RoundedCornerShape(10.dp),
-                                    color = if (sel) bg else Color.White,
+                                    color = if (sel) bg else CurralColors.Surface,
                                     modifier = Modifier.weight(1f).clickable { selectedStatus = st },
                                 ) {
                                     Text(
@@ -316,7 +316,7 @@ private fun AnimalTypeChip(
 ) {
     Surface(
         shape = RoundedCornerShape(10.dp),
-        color = if (selected) CurralColors.FabGreen else Color.White,
+        color = if (selected) CurralColors.FabGreen else CurralColors.Surface,
         modifier = modifier.clickable(onClick = onClick),
     ) {
         Column(

@@ -1,5 +1,6 @@
 package ey.buriti.curral.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -7,6 +8,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -63,15 +65,38 @@ private fun formatExpiry(date: String): String = try {
 // ─── Screen ────────────────────────────────────────────────────────────────────
 
 @Composable
-fun EstoqueScreen(modifier: Modifier = Modifier) {
+fun EstoqueScreen(
+    modifier: Modifier = Modifier,
+    highlightItemId: String? = null,
+    onHighlightConsumed: () -> Unit = {},
+) {
     val items = StockRepository.items
     var search by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<StockCategory?>(null) }
+    var localHighlightId by remember { mutableStateOf<String?>(null) }
+    val listState = rememberLazyListState()
+
+    // Clear filters and prepare to scroll when a highlight is requested
+    LaunchedEffect(highlightItemId) {
+        if (highlightItemId != null) {
+            search = ""
+            selectedCategory = null
+            localHighlightId = highlightItemId
+            onHighlightConsumed()
+        }
+    }
 
     val categories = StockCategory.entries
     val filtered = items.filter { item ->
         (selectedCategory == null || item.category == selectedCategory) &&
         (search.isBlank() || item.name.contains(search, ignoreCase = true))
+    }
+
+    // Scroll to the highlighted item once it appears in the list
+    LaunchedEffect(localHighlightId, filtered.size) {
+        val id = localHighlightId ?: return@LaunchedEffect
+        val idx = filtered.indexOfFirst { it.id == id }
+        if (idx >= 0) listState.animateScrollToItem(idx)
     }
 
     Column(
@@ -85,7 +110,7 @@ fun EstoqueScreen(modifier: Modifier = Modifier) {
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 10.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Color.White)
+                .background(CurralColors.Surface)
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -124,12 +149,14 @@ fun EstoqueScreen(modifier: Modifier = Modifier) {
 
         // ── Items list ─────────────────────────────────────────────────────
         LazyColumn(
+            state = listState,
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(filtered, key = { it.id }) { item ->
                 StockItemRow(
                     item = item,
+                    isHighlighted = item.id == localHighlightId,
                     onIncrement = { StockRepository.increment(item.id) },
                     onDecrement = { StockRepository.decrement(item.id) },
                     onDelete = { StockRepository.remove(item.id) },
@@ -144,7 +171,7 @@ fun EstoqueScreen(modifier: Modifier = Modifier) {
 
 @Composable
 private fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    val bg = if (selected) CurralColors.FabGreen else Color.White
+    val bg = if (selected) CurralColors.FabGreen else CurralColors.Surface
     val fg = if (selected) Color.White else CurralColors.TextPrimary
     Surface(
         shape = RoundedCornerShape(20.dp),
@@ -166,6 +193,7 @@ private fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) 
 @Composable
 private fun StockItemRow(
     item: StockItem,
+    isHighlighted: Boolean = false,
     onIncrement: () -> Unit,
     onDecrement: () -> Unit,
     onDelete: () -> Unit,
@@ -175,7 +203,8 @@ private fun StockItemRow(
 
     Surface(
         shape = RoundedCornerShape(14.dp),
-        color = Color.White,
+        color = CurralColors.Surface,
+        border = if (isHighlighted) BorderStroke(2.dp, CurralColors.AlertAccent) else null,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
@@ -285,10 +314,11 @@ private fun BadgeChip(badge: StockBadge) {
     }
 }
 
+@Composable
 private fun categoryIconBg(category: StockCategory): Color = when (category) {
-    StockCategory.RACAO       -> Color(0xFFE8F5E9)
-    StockCategory.FERRAMENTAS -> Color(0xFFE3F2FD)
-    StockCategory.REMEDIOS    -> Color(0xFFF3E5F5)
-    StockCategory.OUTROS      -> Color(0xFFFFF3E0)
+    StockCategory.RACAO       -> CurralColors.CategoryRacaoBg
+    StockCategory.FERRAMENTAS -> CurralColors.CategoryFerramentasBg
+    StockCategory.REMEDIOS    -> CurralColors.CategoryRemediosBg
+    StockCategory.OUTROS      -> CurralColors.CategoryOutrosBg
 }
 

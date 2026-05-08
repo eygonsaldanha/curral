@@ -28,7 +28,6 @@ import ey.buriti.curral.model.*
 import ey.buriti.curral.ui.theme.CurralColors
 
 private val GestationPurple = Color(0xFF7C3AED)
-private val GestationPurpleBg = Color(0xFFF5F0FF)
 
 @Composable
 fun AnimalDetailScreen(
@@ -154,7 +153,7 @@ private fun AnimalDetailTopBar(onBack: () -> Unit) {
 private fun ProfileHeaderCard(animal: Animal) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = CurralColors.Surface,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
@@ -196,8 +195,8 @@ private fun ProfileHeaderCard(animal: Animal) {
 @Composable
 private fun SexChip(sex: AnimalSex) {
     val (bg, fg) = when (sex) {
-        AnimalSex.FEMEA -> Color(0xFFF3E5F5) to Color(0xFF9C27B0)
-        AnimalSex.MACHO -> Color(0xFFE3F2FD) to Color(0xFF1565C0)
+        AnimalSex.FEMEA -> CurralColors.SexFemaleBg to CurralColors.SexFemaleFg
+        AnimalSex.MACHO -> CurralColors.SexMaleBg to CurralColors.SexMaleFg
     }
     Surface(shape = RoundedCornerShape(20.dp), color = bg) {
         Text(
@@ -216,7 +215,7 @@ private fun SexChip(sex: AnimalSex) {
 private fun InfoGridCard(animal: Animal) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = CurralColors.Surface,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -268,7 +267,7 @@ private fun InfoCell(label: String, value: String, modifier: Modifier = Modifier
 private fun GestationCard(gestation: Gestation, father: Animal?) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = CurralColors.Surface,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -358,7 +357,7 @@ private fun GestationRowWithBadge(label: String, value: String) {
 private fun GroupsCard(groups: List<AnimalGroup>) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = CurralColors.Surface,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -396,7 +395,7 @@ private fun GroupsCard(groups: List<AnimalGroup>) {
 private fun QuickActionsCard(onWeightClick: () -> Unit, onEventClick: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = CurralColors.Surface,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -473,7 +472,7 @@ private fun ParentsCard(
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = CurralColors.Surface,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -532,7 +531,7 @@ private fun ParentCell(
 private fun OffspringCard(offspring: List<Animal>, onNavigateToAnimal: (String) -> Unit) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = CurralColors.Surface,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -590,7 +589,7 @@ private fun OffspringRow(child: Animal, onClick: () -> Unit) {
 private fun EventHistoryCard(events: List<AnimalEvent>) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = CurralColors.Surface,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -621,10 +620,10 @@ private fun EventHistoryCard(events: List<AnimalEvent>) {
 @Composable
 private fun EventHistoryRow(event: AnimalEvent) {
     val iconBg = when (event.type) {
-        EventType.NASCIMENTO, EventType.NASCIMENTO_FILHOTE -> Color(0xFFF3E5F5)
-        EventType.VACINACAO -> Color(0xFFE8F5E9)
-        EventType.TRATAMENTO -> Color(0xFFFBE9E7)
-        EventType.CONTROLE_PESO -> Color(0xFFE3F2FD)
+        EventType.NASCIMENTO, EventType.NASCIMENTO_FILHOTE -> CurralColors.StatusPregnantBg
+        EventType.VACINACAO -> CurralColors.StatusHealthyBg
+        EventType.TRATAMENTO -> CurralColors.StatusSickBg
+        EventType.CONTROLE_PESO -> CurralColors.StatBlueBg
         else -> CurralColors.SearchBackground
     }
     Row(

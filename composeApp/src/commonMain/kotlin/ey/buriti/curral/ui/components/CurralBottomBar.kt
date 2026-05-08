@@ -34,14 +34,14 @@ fun CurralBottomBar(
             .fillMaxWidth()
             .height(88.dp)
     ) {
-        // White bar
+        // Bottom bar
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(64.dp)
                 .align(Alignment.BottomCenter),
             shadowElevation = 12.dp,
-            color = Color.White
+            color = CurralColors.Surface
         ) {
             Row(
                 modifier = Modifier.fillMaxSize(),

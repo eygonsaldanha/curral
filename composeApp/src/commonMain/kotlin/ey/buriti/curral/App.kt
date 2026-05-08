@@ -1,10 +1,14 @@
 package ey.buriti.curral
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.*
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import ey.buriti.curral.navigation.NavigationState
@@ -19,13 +23,21 @@ import ey.buriti.curral.ui.screens.HomeScreen
 import ey.buriti.curral.ui.screens.NovoAnimalScreen
 import ey.buriti.curral.ui.screens.PerfilScreen
 import ey.buriti.curral.ui.screens.ProducaoScreen
+import ey.buriti.curral.ui.theme.DarkCurralColors
+import ey.buriti.curral.ui.theme.LightCurralColors
+import ey.buriti.curral.ui.theme.LocalCurralColors
 
 @Composable
 @Preview
 fun App() {
-    MaterialTheme {
+    val darkTheme = isSystemInDarkTheme()
+    val curralColors = if (darkTheme) DarkCurralColors else LightCurralColors
+    val materialColors = if (darkTheme) darkColorScheme() else lightColorScheme()
+    CompositionLocalProvider(LocalCurralColors provides curralColors) {
+        MaterialTheme(colorScheme = materialColors) {
         var navState by remember { mutableStateOf<NavigationState>(NavigationState.MainScreen(Screen.HOME)) }
         var showQuickAdd by remember { mutableStateOf(false) }
+        var stockHighlightId by remember { mutableStateOf<String?>(null) }
 
         val showBottomBar = navState is NavigationState.MainScreen
 
@@ -47,13 +59,21 @@ fun App() {
                         Screen.HOME -> HomeScreen(
                             onNavigateToProfile = { navState = NavigationState.Perfil },
                             onNavigateToAnimais = { navState = NavigationState.MainScreen(Screen.ANIMAIS) },
+                            onNavigateToAnimal = { id -> navState = NavigationState.AnimalDetail(id) },
+                            onNavigateToStockItem = { id ->
+                                stockHighlightId = id
+                                navState = NavigationState.MainScreen(Screen.ESTOQUE)
+                            },
                         )
                         Screen.ANIMAIS -> AnimaisScreen(
                             onNavigateToAnimal = { navState = NavigationState.AnimalDetail(it) },
                             onNavigateToGroup = { navState = NavigationState.GroupDetail(it) },
                         )
                         Screen.PRODUCAO -> ProducaoScreen()
-                        Screen.ESTOQUE -> EstoqueScreen()
+                        Screen.ESTOQUE -> EstoqueScreen(
+                            highlightItemId = stockHighlightId,
+                            onHighlightConsumed = { stockHighlightId = null },
+                        )
                     }
                     is NavigationState.AnimalDetail -> AnimalDetailScreen(
                         animalId = state.animalId,
@@ -84,6 +104,7 @@ fun App() {
                     navState = NavigationState.NewAnimal
                 },
             )
+        }
         }
     }
 }

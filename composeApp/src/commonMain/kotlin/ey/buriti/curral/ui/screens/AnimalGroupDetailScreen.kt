@@ -47,7 +47,7 @@ fun AnimalGroupDetailScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = CurralColors.Surface),
             )
         },
         floatingActionButton = {
@@ -70,7 +70,7 @@ fun AnimalGroupDetailScreen(
             item {
                 Surface(
                     shape = RoundedCornerShape(14.dp),
-                    color = Color.White,
+                    color = CurralColors.Surface,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {

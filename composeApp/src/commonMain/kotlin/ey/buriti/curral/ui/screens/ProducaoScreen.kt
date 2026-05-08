@@ -1,4 +1,4 @@
-﻿package ey.buriti.curral.ui.screens
+package ey.buriti.curral.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -79,7 +79,7 @@ fun ProducaoScreen(modifier: Modifier = Modifier) {
                 SmallBarCard(
                     title = "Ovos",
                     iconEmoji = "🥚",
-                    iconBg = Color(0xFFFFF3E0),
+                    iconBg = CurralColors.StatOrangeBg,
                     value = "1,260",
                     unit = "unidades",
                     trend = "-2.1%",
@@ -91,7 +91,7 @@ fun ProducaoScreen(modifier: Modifier = Modifier) {
                 SmallBarCard(
                     title = "Mel",
                     iconEmoji = "🍯",
-                    iconBg = Color(0xFFFFFDE7),
+                    iconBg = CurralColors.StatYellowBg,
                     value = "45",
                     unit = "kg",
                     trend = "+12.5%",
@@ -108,7 +108,7 @@ fun ProducaoScreen(modifier: Modifier = Modifier) {
             MediumBarCard(
                 title = "Capim/Feno",
                 iconEmoji = "🌿",
-                iconBg = Color(0xFFE8F5E9),
+                iconBg = CurralColors.StatusHealthyBg,
                 value = "850",
                 unit = "kg",
                 trend = "+5%",
@@ -131,7 +131,7 @@ fun ProducaoScreen(modifier: Modifier = Modifier) {
 private fun LeiteCard() {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = CurralColors.Surface,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -139,7 +139,7 @@ private fun LeiteCard() {
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                EmojiIconBox(emoji = "🥛", bg = Color(0xFFE3F2FD))
+                EmojiIconBox(emoji = "🥛", bg = CurralColors.StatBlueBg)
                 Spacer(Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Produção de Leite", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = CurralColors.TextPrimary)
@@ -215,7 +215,7 @@ private fun SmallBarCard(
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = CurralColors.Surface,
         modifier = modifier,
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -254,7 +254,7 @@ private fun MediumBarCard(
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = CurralColors.Surface,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -291,14 +291,14 @@ private fun MediumBarCard(
 private fun AguaCard() {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
+        color = CurralColors.Surface,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            EmojiIconBox(emoji = "💧", bg = Color(0xFFE3F2FD))
+            EmojiIconBox(emoji = "💧", bg = CurralColors.StatBlueBg)
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text("Consumo de Água", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = CurralColors.TextPrimary)

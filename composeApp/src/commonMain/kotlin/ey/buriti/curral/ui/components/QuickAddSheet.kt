@@ -101,7 +101,7 @@ private fun SheetMenu(
 private fun MenuTile(emoji: String, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
         shape = RoundedCornerShape(14.dp),
-        color = Color.White,
+        color = CurralColors.Surface,
         modifier = modifier
             .height(90.dp)
             .clickable(onClick = onClick),
@@ -157,7 +157,7 @@ private fun <T> SelectChips(
             val isSelected = opt == selected
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = if (isSelected) CurralColors.FabGreen else Color.White,
+                color = if (isSelected) CurralColors.FabGreen else CurralColors.Surface,
                 modifier = Modifier.clickable { onSelect(opt) },
             ) {
                 Text(
@@ -212,7 +212,7 @@ private fun ProducaoFormContent(onBack: () -> Unit, onSave: () -> Unit) {
                         val sel = pt == productType
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = if (sel) CurralColors.FabGreen else Color.White,
+                            color = if (sel) CurralColors.FabGreen else CurralColors.Surface,
                             modifier = Modifier.weight(1f).clickable { productType = pt },
                         ) {
                             Column(
@@ -232,7 +232,7 @@ private fun ProducaoFormContent(onBack: () -> Unit, onSave: () -> Unit) {
                         val sel = pt == productType
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = if (sel) CurralColors.FabGreen else Color.White,
+                            color = if (sel) CurralColors.FabGreen else CurralColors.Surface,
                             modifier = Modifier.weight(1f).clickable { productType = pt },
                         ) {
                             Column(
@@ -385,7 +385,7 @@ private fun EventoFormContent(onBack: () -> Unit, onSave: () -> Unit) {
                         val sel = et == selectedType
                         Surface(
                             shape = RoundedCornerShape(10.dp),
-                            color = if (sel) CurralColors.FabGreen else Color.White,
+                            color = if (sel) CurralColors.FabGreen else CurralColors.Surface,
                             modifier = Modifier.weight(1f).clickable { selectedType = et },
                         ) {
                             Row(
@@ -406,7 +406,7 @@ private fun EventoFormContent(onBack: () -> Unit, onSave: () -> Unit) {
                         val sel = et == selectedType
                         Surface(
                             shape = RoundedCornerShape(10.dp),
-                            color = if (sel) CurralColors.FabGreen else Color.White,
+                            color = if (sel) CurralColors.FabGreen else CurralColors.Surface,
                             modifier = Modifier.weight(1f).clickable { selectedType = et },
                         ) {
                             Row(
@@ -594,7 +594,7 @@ private fun EstoqueFormContent(onBack: () -> Unit, onSave: () -> Unit) {
                         val sel = cat == selectedCategory
                         Surface(
                             shape = RoundedCornerShape(10.dp),
-                            color = if (sel) CurralColors.FabGreen else Color.White,
+                            color = if (sel) CurralColors.FabGreen else CurralColors.Surface,
                             modifier = Modifier.weight(1f).clickable { selectedCategory = cat },
                         ) {
                             Column(
@@ -614,7 +614,7 @@ private fun EstoqueFormContent(onBack: () -> Unit, onSave: () -> Unit) {
                         val sel = cat == selectedCategory
                         Surface(
                             shape = RoundedCornerShape(10.dp),
-                            color = if (sel) CurralColors.FabGreen else Color.White,
+                            color = if (sel) CurralColors.FabGreen else CurralColors.Surface,
                             modifier = Modifier.weight(1f).clickable { selectedCategory = cat },
                         ) {
                             Column(

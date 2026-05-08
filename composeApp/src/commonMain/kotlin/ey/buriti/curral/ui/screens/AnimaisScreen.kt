@@ -59,7 +59,7 @@ fun AnimaisScreen(
             .background(CurralColors.Background)
     ) {
         // ── Header ─────────────────────────────────────────────────────────────
-        Column(modifier = Modifier.background(Color.White).padding(horizontal = 20.dp, vertical = 16.dp)) {
+        Column(modifier = Modifier.background(CurralColors.Surface).padding(horizontal = 20.dp, vertical = 16.dp)) {
             Text(
                 "Animais",
                 fontSize = 22.sp,
@@ -76,7 +76,7 @@ fun AnimaisScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
+                .background(CurralColors.Surface)
                 .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -97,7 +97,7 @@ fun AnimaisScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
+                .background(CurralColors.Surface)
                 .padding(horizontal = 20.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -246,7 +246,7 @@ private fun AnimalsListView(animals: List<Animal>, onAnimalClick: (String) -> Un
 internal fun AnimalListItem(animal: Animal, onClick: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(14.dp),
-        color = Color.White,
+        color = CurralColors.Surface,
         shadowElevation = 1.dp,
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
     ) {
@@ -325,7 +325,7 @@ private fun GroupsListView(groups: List<AnimalGroup>, onGroupClick: (String) -> 
 private fun GroupCard(group: AnimalGroup, onClick: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(14.dp),
-        color = Color.White,
+        color = CurralColors.Surface,
         shadowElevation = 1.dp,
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
     ) {
@@ -357,6 +357,7 @@ private fun GroupCard(group: AnimalGroup, onClick: () -> Unit) {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
+@Composable
 internal fun statusColors(status: AnimalStatus): Pair<Color, Color> = when (status) {
     AnimalStatus.SAUDAVEL -> CurralColors.StatusHealthyBg to CurralColors.StatusHealthy
     AnimalStatus.PRENHA   -> CurralColors.StatusPregnantBg to CurralColors.StatusPregnant

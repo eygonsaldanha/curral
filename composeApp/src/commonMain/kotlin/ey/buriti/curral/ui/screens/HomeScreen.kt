@@ -32,14 +32,29 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ey.buriti.curral.data.AnimalRepository
+import ey.buriti.curral.data.StockRepository
+import ey.buriti.curral.model.AnimalStatus
+import ey.buriti.curral.model.StockItem
 import ey.buriti.curral.ui.theme.CurralColors
 import kotlinx.coroutines.launch
+
+private data class AppAlert(
+    val title: String,
+    val subtitle: String,
+    val kind: AlertKind,
+    val destination: () -> Unit,
+)
+
+private enum class AlertKind { VENCIDO, VENCENDO, BAIXO_ESTOQUE, ANIMAL_DOENTE }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onNavigateToProfile: () -> Unit = {},
     onNavigateToAnimais: () -> Unit = {},
+    onNavigateToAnimal: (String) -> Unit = {},
+    onNavigateToStockItem: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberScrollState()
@@ -47,6 +62,8 @@ fun HomeScreen(
     var searchQuery by remember { mutableStateOf("") }
     var showNotifications by remember { mutableStateOf(false) }
     var showAllAlerts by remember { mutableStateOf(false) }
+
+    val alerts = buildAlerts(onNavigateToStockItem, onNavigateToAnimal)
 
     Column(
         modifier = modifier
@@ -65,8 +82,10 @@ fun HomeScreen(
             onSearch = { onNavigateToAnimais() },
         )
         Spacer(Modifier.height(16.dp))
-        AlertsSection(onViewAll = { showAllAlerts = true })
-        Spacer(Modifier.height(16.dp))
+        if (alerts.isNotEmpty()) {
+            AlertsSection(alerts = alerts, onViewAll = { showAllAlerts = true })
+            Spacer(Modifier.height(16.dp))
+        }
         StatsSection()
         Spacer(Modifier.height(16.dp))
         CalendarSection()
@@ -74,10 +93,10 @@ fun HomeScreen(
     }
 
     if (showNotifications) {
-        NotificationsSheet(onDismiss = { showNotifications = false })
+        NotificationsSheet(alerts = alerts, onDismiss = { showNotifications = false })
     }
     if (showAllAlerts) {
-        AllAlertsSheet(onDismiss = { showAllAlerts = false })
+        AllAlertsSheet(alerts = alerts, onDismiss = { showAllAlerts = false })
     }
 }
 
@@ -178,7 +197,7 @@ private fun SearchBar(
 // ─── Alerts Section ─────────────────────────────────────────────────────────────
 
 @Composable
-private fun AlertsSection(onViewAll: () -> Unit) {
+private fun AlertsSection(alerts: List<AppAlert>, onViewAll: () -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -205,42 +224,50 @@ private fun AlertsSection(onViewAll: () -> Unit) {
             }
             Spacer(Modifier.height(12.dp))
 
-            // Alert items
-            AlertItem("Ração para galinhas próxima ao vencimento")
-            Spacer(Modifier.height(8.dp))
-            AlertItem("Antibiótico bovino vencido - descartar")
+            alerts.take(2).forEachIndexed { idx, alert ->
+                if (idx > 0) Spacer(Modifier.height(8.dp))
+                AlertItem(text = alert.title, onClick = alert.destination)
+            }
 
-            Spacer(Modifier.height(12.dp))
-            Text(
-                "Ver todos os alertas →",
-                color = CurralColors.AlertAccent,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.clickable(onClick = onViewAll),
-            )
+            if (alerts.size > 2) {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "Ver todos os alertas →",
+                    color = CurralColors.AlertAccent,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.clickable(onClick = onViewAll),
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun AlertItem(text: String) {
+private fun AlertItem(text: String, onClick: () -> Unit = {}) {
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = CurralColors.AlertItemBackground
+        color = CurralColors.AlertItemBackground,
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.Top
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
-                    .padding(top = 4.dp)
                     .size(8.dp)
                     .clip(CircleShape)
                     .background(CurralColors.AlertDot)
             )
             Spacer(Modifier.width(10.dp))
-            Text(text, fontSize = 14.sp, color = CurralColors.TextPrimary)
+            Text(text, fontSize = 14.sp, color = CurralColors.TextPrimary, modifier = Modifier.weight(1f))
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = CurralColors.AlertAccent,
+                modifier = Modifier.size(16.dp),
+            )
         }
     }
 }
@@ -249,7 +276,7 @@ private fun AlertItem(text: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NotificationsSheet(onDismiss: () -> Unit) {
+private fun NotificationsSheet(alerts: List<AppAlert>, onDismiss: () -> Unit) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(),
@@ -257,33 +284,27 @@ private fun NotificationsSheet(onDismiss: () -> Unit) {
         Column(modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 32.dp)) {
             Text("Notificações", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = CurralColors.TextPrimary)
             Spacer(Modifier.height(16.dp))
-            NotificationItem(
-                icon = Icons.Filled.Warning,
-                iconColor = Color(0xFFEF4444),
-                title = "Antibiótico Bovino vencido",
-                subtitle = "Venceu em 09/08/2025 — descarte recomendado",
-            )
-            Spacer(Modifier.height(12.dp))
-            NotificationItem(
-                icon = Icons.Filled.Warning,
-                iconColor = Color(0xFFF59E0B),
-                title = "Ração para Galinhas vence em breve",
-                subtitle = "Validade: 15/06/2026",
-            )
-            Spacer(Modifier.height(12.dp))
-            NotificationItem(
-                icon = Icons.Filled.WaterDrop,
-                iconColor = Color(0xFF3B82F6),
-                title = "Ração para Gado abaixo do mínimo",
-                subtitle = "Estoque atual: 150 kg (mínimo: 200 kg)",
-            )
+            if (alerts.isEmpty()) {
+                Text("Nenhuma notificação no momento.", fontSize = 14.sp, color = CurralColors.TextSecondary)
+            } else {
+                alerts.forEachIndexed { idx, alert ->
+                    if (idx > 0) Spacer(Modifier.height(12.dp))
+                    NotificationItem(
+                        icon = alertKindIcon(alert.kind),
+                        iconColor = alertKindColor(alert.kind),
+                        title = alert.title,
+                        subtitle = alert.subtitle,
+                        onClick = { onDismiss(); alert.destination() },
+                    )
+                }
+            }
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AllAlertsSheet(onDismiss: () -> Unit) {
+private fun AllAlertsSheet(alerts: List<AppAlert>, onDismiss: () -> Unit) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(),
@@ -291,13 +312,17 @@ private fun AllAlertsSheet(onDismiss: () -> Unit) {
         Column(modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 32.dp)) {
             Text("Todos os Alertas", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = CurralColors.TextPrimary)
             Spacer(Modifier.height(16.dp))
-            AlertItem("Antibiótico bovino vencido — descarte recomendado")
-            Spacer(Modifier.height(8.dp))
-            AlertItem("Ração para Galinhas próxima ao vencimento (15/06/2026)")
-            Spacer(Modifier.height(8.dp))
-            AlertItem("Ração para Gado abaixo do nível mínimo (150 kg / mín 200 kg)")
-            Spacer(Modifier.height(8.dp))
-            AlertItem("Faísca em tratamento — verificar evolução")
+            if (alerts.isEmpty()) {
+                Text("Nenhum alerta no momento.", fontSize = 14.sp, color = CurralColors.TextSecondary)
+            } else {
+                alerts.forEachIndexed { idx, alert ->
+                    if (idx > 0) Spacer(Modifier.height(8.dp))
+                    AlertItem(
+                        text = alert.title,
+                        onClick = { onDismiss(); alert.destination() },
+                    )
+                }
+            }
         }
     }
 }
@@ -308,8 +333,16 @@ private fun NotificationItem(
     iconColor: Color,
     title: String,
     subtitle: String,
+    onClick: () -> Unit = {},
 ) {
-    Row(verticalAlignment = Alignment.Top) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Box(
             modifier = Modifier
                 .size(40.dp)
@@ -320,10 +353,16 @@ private fun NotificationItem(
             Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(22.dp))
         }
         Spacer(Modifier.width(12.dp))
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = CurralColors.TextPrimary)
             Text(subtitle, fontSize = 12.sp, color = CurralColors.TextSecondary)
         }
+        Icon(
+            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = CurralColors.TextSecondary,
+            modifier = Modifier.size(18.dp),
+        )
     }
 }
 
@@ -528,5 +567,82 @@ private fun daysInMonth(year: Int, month: Int): Int = when (month) {
     4, 6, 9, 11 -> 30
     2 -> if (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) 29 else 28
     else -> 30
+}
+
+// ─── Alert helpers ──────────────────────────────────────────────────────────────
+
+private fun buildAlerts(
+    onNavigateToStockItem: (String) -> Unit,
+    onNavigateToAnimal: (String) -> Unit,
+): List<AppAlert> {
+    val stockAlerts = StockRepository.items.mapNotNull { item ->
+        when (homeStockBadge(item)) {
+            "VENCIDO" -> AppAlert(
+                title = "${item.name} vencido",
+                subtitle = "Venceu em ${formatStockDate(item.expiryDate!!)} — descarte recomendado",
+                kind = AlertKind.VENCIDO,
+                destination = { onNavigateToStockItem(item.id) },
+            )
+            "VENCENDO" -> AppAlert(
+                title = "${item.name} vence em breve",
+                subtitle = "Validade: ${formatStockDate(item.expiryDate!!)}",
+                kind = AlertKind.VENCENDO,
+                destination = { onNavigateToStockItem(item.id) },
+            )
+            "BAIXO" -> AppAlert(
+                title = "${item.name} abaixo do mínimo",
+                subtitle = "Estoque: ${item.quantity} ${item.unit} (mín: ${item.lowStockThreshold} ${item.unit})",
+                kind = AlertKind.BAIXO_ESTOQUE,
+                destination = { onNavigateToStockItem(item.id) },
+            )
+            else -> null
+        }
+    }
+    val animalAlerts = AnimalRepository.animals
+        .filter { it.status == AnimalStatus.DOENTE }
+        .map { animal ->
+            AppAlert(
+                title = "${animal.name} em tratamento",
+                subtitle = "Verificar evolução — Status: Doente",
+                kind = AlertKind.ANIMAL_DOENTE,
+                destination = { onNavigateToAnimal(animal.id) },
+            )
+        }
+    return stockAlerts + animalAlerts
+}
+
+private fun homeStockBadge(item: StockItem): String {
+    val threshold = item.lowStockThreshold
+    if (threshold != null && item.quantity <= threshold) return "BAIXO"
+    val expiry = item.expiryDate ?: return "OK"
+    return try {
+        val parts = expiry.split("-")
+        val y = parts[0].toInt(); val m = parts[1].toInt(); val d = parts[2].toInt()
+        val todayDays = 2026 * 365 + 5 * 30 + 7
+        val expiryDays = y * 365 + m * 30 + d
+        when {
+            expiryDays < todayDays -> "VENCIDO"
+            expiryDays - todayDays <= 60 -> "VENCENDO"
+            else -> "OK"
+        }
+    } catch (_: Exception) { "OK" }
+}
+
+private fun formatStockDate(date: String): String = try {
+    val p = date.split("-"); "${p[2]}/${p[1]}/${p[0]}"
+} catch (_: Exception) { date }
+
+private fun alertKindIcon(kind: AlertKind): ImageVector = when (kind) {
+    AlertKind.VENCIDO       -> Icons.Filled.Warning
+    AlertKind.VENCENDO      -> Icons.Filled.Warning
+    AlertKind.BAIXO_ESTOQUE -> Icons.Filled.WaterDrop
+    AlertKind.ANIMAL_DOENTE -> Icons.Filled.Warning
+}
+
+private fun alertKindColor(kind: AlertKind): Color = when (kind) {
+    AlertKind.VENCIDO       -> Color(0xFFEF4444)
+    AlertKind.VENCENDO      -> Color(0xFFF59E0B)
+    AlertKind.BAIXO_ESTOQUE -> Color(0xFF3B82F6)
+    AlertKind.ANIMAL_DOENTE -> Color(0xFFFF7043)
 }
 
