@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ey.buriti.curral.data.AnimalRepository
 import ey.buriti.curral.model.AnimalEvent
+import ey.buriti.curral.platform.PlatformDate
 import ey.buriti.curral.platform.getCurrentDate
 import ey.buriti.curral.ui.theme.CurralColors
 import kotlinx.coroutines.launch
@@ -543,7 +544,7 @@ private fun CalendarSection() {
 
             Spacer(Modifier.height(16.dp))
             Text(
-                text = "Agenda de ${selectedDate?.let(::formatIsoDate).orEmpty()}",
+                text = "Agenda de ${selectedDate?.let(::formatDate).orEmpty()}",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = CurralColors.TextPrimary,
@@ -633,10 +634,4 @@ private fun buildEventSubtitle(event: AnimalEvent): String {
     return listOf(target, details).filter { it.isNotBlank() }.joinToString(" — ")
 }
 
-private fun isoDate(year: Int, month: Int, day: Int): String =
-    "${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}"
-
-private fun formatIsoDate(date: String): String {
-    val parts = date.split("-")
-    return if (parts.size == 3) "${parts[2]}/${parts[1]}/${parts[0]}" else date
-}
+private fun isoDate(year: Int, month: Int, day: Int): String = PlatformDate(year = year, month = month, day = day).toIsoDateString()

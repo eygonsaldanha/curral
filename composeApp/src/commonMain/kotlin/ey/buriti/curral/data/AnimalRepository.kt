@@ -283,8 +283,8 @@ object AnimalRepository {
     fun getEventsForAnimal(animalId: String): List<AnimalEvent> {
         val animalGroups = getGroupsForAnimal(animalId).map { it.id }.toSet()
         return events
-        .filter { it.animalId == animalId || (it.groupId != null && it.groupId in animalGroups) }
-        .sortedWith(compareByDescending<AnimalEvent> { it.date }.thenByDescending { it.time })
+            .filter { it.animalId == animalId || (it.groupId != null && it.groupId in animalGroups) }
+            .sortedWith(compareByDescending<AnimalEvent> { it.date }.thenByDescending { it.time })
     }
 
     fun getEventsForDay(date: String): List<AnimalEvent> = events

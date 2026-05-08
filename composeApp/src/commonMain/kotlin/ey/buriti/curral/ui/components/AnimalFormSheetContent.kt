@@ -40,6 +40,7 @@ import ey.buriti.curral.model.AnimalSex
 import ey.buriti.curral.model.AnimalStatus
 import ey.buriti.curral.model.AnimalType
 import ey.buriti.curral.platform.getCurrentDate
+import ey.buriti.curral.ui.screens.toIsoDateOrNull
 import ey.buriti.curral.ui.screens.statusColors
 import ey.buriti.curral.ui.theme.CurralColors
 
@@ -366,12 +367,7 @@ private fun AnimalFormField(
 }
 
 private fun parseBirthDate(ddMmYyyy: String): String {
-    val parsed = ddMmYyyy.trim().split("/")
-    return if (parsed.size == 3) {
-        "${parsed[2]}-${parsed[1].padStart(2, '0')}-${parsed[0].padStart(2, '0')}"
-    } else {
-        getCurrentDate().toIsoDateString()
-    }
+    return ddMmYyyy.toIsoDateOrNull() ?: getCurrentDate().toIsoDateString()
 }
 
 private fun String.toDisplayDate(): String {
