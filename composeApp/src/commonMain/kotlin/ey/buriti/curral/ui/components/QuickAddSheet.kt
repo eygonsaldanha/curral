@@ -9,7 +9,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,15 +24,26 @@ import ey.buriti.curral.data.StockRepository
 import ey.buriti.curral.model.*
 import ey.buriti.curral.ui.theme.CurralColors
 
-private enum class SheetPage { MENU, PRODUCAO, EVENTO, ESTOQUE }
+enum class QuickAddPage { MENU, ANIMAL, PRODUCAO, EVENTO, ESTOQUE }
+
+data class QuickAddRequest(
+    val initialPage: QuickAddPage = QuickAddPage.MENU,
+    val preselectedAnimalId: String? = null,
+    val preselectedGroupId: String? = null,
+    val editingAnimalId: String? = null,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuickAddSheet(
     onDismiss: () -> Unit,
-    onNavigateToNewAnimal: () -> Unit,
+    request: QuickAddRequest = QuickAddRequest(),
+    onAnimalSaved: (String) -> Unit = {},
 ) {
-    var page by remember { mutableStateOf(SheetPage.MENU) }
+    var page by remember(request) { mutableStateOf(request.initialPage) }
+    val onSubpageBack: () -> Unit = {
+        if (request.initialPage == QuickAddPage.MENU) page = QuickAddPage.MENU else onDismiss()
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -41,22 +51,32 @@ fun QuickAddSheet(
         containerColor = CurralColors.Background,
     ) {
         when (page) {
-            SheetPage.MENU -> SheetMenu(
-                onSelectProducao = { page = SheetPage.PRODUCAO },
-                onSelectAnimal = { onNavigateToNewAnimal() },
-                onSelectEvento = { page = SheetPage.EVENTO },
-                onSelectEstoque = { page = SheetPage.ESTOQUE },
+            QuickAddPage.MENU -> SheetMenu(
+                onSelectProducao = { page = QuickAddPage.PRODUCAO },
+                onSelectAnimal = { page = QuickAddPage.ANIMAL },
+                onSelectEvento = { page = QuickAddPage.EVENTO },
+                onSelectEstoque = { page = QuickAddPage.ESTOQUE },
             )
-            SheetPage.PRODUCAO -> ProducaoFormContent(
-                onBack = { page = SheetPage.MENU },
+            QuickAddPage.ANIMAL -> AnimalFormSheetContent(
+                onBack = onSubpageBack,
+                onSave = {
+                    onAnimalSaved(it)
+                    onDismiss()
+                },
+                animalId = request.editingAnimalId,
+            )
+            QuickAddPage.PRODUCAO -> ProducaoFormContent(
+                onBack = onSubpageBack,
                 onSave = { onDismiss() },
             )
-            SheetPage.EVENTO -> EventoFormContent(
-                onBack = { page = SheetPage.MENU },
+            QuickAddPage.EVENTO -> EventoFormContent(
+                onBack = onSubpageBack,
                 onSave = { onDismiss() },
+                preselectedAnimalId = request.preselectedAnimalId,
+                preselectedGroupId = request.preselectedGroupId,
             )
-            SheetPage.ESTOQUE -> EstoqueFormContent(
-                onBack = { page = SheetPage.MENU },
+            QuickAddPage.ESTOQUE -> EstoqueFormContent(
+                onBack = onSubpageBack,
                 onSave = { onDismiss() },
             )
         }
@@ -186,6 +206,7 @@ private fun ProducaoFormContent(onBack: () -> Unit, onSave: () -> Unit) {
     var unit by remember { mutableStateOf("kg") }
     var date by remember { mutableStateOf("07/05/2026") }
     var notes by remember { mutableStateOf("") }
+    var photoLabel by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(productType) {
         unit = when (productType) {
@@ -283,15 +304,7 @@ private fun ProducaoFormContent(onBack: () -> Unit, onSave: () -> Unit) {
         }
 
         FormField("Foto (opcional)") {
-            OutlinedButton(
-                onClick = { },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-            ) {
-                Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Adicionar Foto")
-            }
+            PhotoAttachmentField(selectedPhotoLabel = photoLabel, onPhotoSelected = { photoLabel = it })
         }
 
         FormField("Observação (opcional)") {
@@ -341,15 +354,21 @@ private val EventoTypes = listOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EventoFormContent(onBack: () -> Unit, onSave: () -> Unit) {
+private fun EventoFormContent(
+    onBack: () -> Unit,
+    onSave: () -> Unit,
+    preselectedAnimalId: String? = null,
+    preselectedGroupId: String? = null,
+) {
     var title by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf<EventType?>(null) }
     var date by remember { mutableStateOf("07/05/2026") }
     var time by remember { mutableStateOf("") }
-    var assignToAnimal by remember { mutableStateOf(true) }
-    var selectedAnimalId by remember { mutableStateOf<String?>(null) }
-    var selectedGroupId by remember { mutableStateOf<String?>(null) }
+    var assignToAnimal by remember(preselectedAnimalId, preselectedGroupId) { mutableStateOf(preselectedGroupId == null) }
+    var selectedAnimalId by remember(preselectedAnimalId) { mutableStateOf(preselectedAnimalId) }
+    var selectedGroupId by remember(preselectedGroupId) { mutableStateOf(preselectedGroupId) }
     var description by remember { mutableStateOf("") }
+    var photoLabel by remember { mutableStateOf<String?>(null) }
 
     var animalDropdownExpanded by remember { mutableStateOf(false) }
     var groupDropdownExpanded by remember { mutableStateOf(false) }
@@ -537,11 +556,18 @@ private fun EventoFormContent(onBack: () -> Unit, onSave: () -> Unit) {
             )
         }
 
+        FormField("Foto (opcional)") {
+            PhotoAttachmentField(selectedPhotoLabel = photoLabel, onPhotoSelected = { photoLabel = it })
+        }
+
         Button(
             onClick = {
                 val type = selectedType ?: return@Button
                 val animalId = if (assignToAnimal) (selectedAnimalId ?: return@Button) else ""
                 val groupId = if (!assignToAnimal) selectedGroupId else null
+                val fullDescription = listOf(title.trim(), description.trim())
+                    .filter { it.isNotBlank() }
+                    .joinToString(" — ")
                 AnimalRepository.addEvent(
                     AnimalEvent(
                         id = AnimalRepository.generateEventId(),
@@ -549,7 +575,7 @@ private fun EventoFormContent(onBack: () -> Unit, onSave: () -> Unit) {
                         type = type,
                         date = dateToIso(date),
                         time = time,
-                        notes = description,
+                        notes = fullDescription,
                         groupId = groupId,
                     )
                 )

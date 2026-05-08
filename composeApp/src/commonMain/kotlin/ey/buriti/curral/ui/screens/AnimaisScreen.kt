@@ -39,6 +39,9 @@ fun AnimaisScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf<AnimalType?>(null) }
     var showGroups by remember { mutableStateOf(false) }
+    var showCreateGroupDialog by remember { mutableStateOf(false) }
+    var newGroupName by remember { mutableStateOf("") }
+    var newGroupDescription by remember { mutableStateOf("") }
 
     val allAnimals = AnimalRepository.animals
     val filteredAnimals = allAnimals.filter { animal ->
@@ -109,6 +112,17 @@ fun AnimaisScreen(
 
         // ── Content ────────────────────────────────────────────────────────────
         if (showGroups) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White)
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                FilledTonalButton(onClick = { showCreateGroupDialog = true }) {
+                    Text("Criar novo grupo")
+                }
+            }
             GroupsListView(
                 groups = AnimalRepository.groups,
                 onGroupClick = onNavigateToGroup,
@@ -119,6 +133,46 @@ fun AnimaisScreen(
                 onAnimalClick = onNavigateToAnimal,
             )
         }
+    }
+
+    if (showCreateGroupDialog) {
+        AlertDialog(
+            onDismissRequest = { showCreateGroupDialog = false },
+            title = { Text("Novo grupo") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = newGroupName,
+                        onValueChange = { newGroupName = it },
+                        label = { Text("Nome do grupo") },
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        value = newGroupDescription,
+                        onValueChange = { newGroupDescription = it },
+                        label = { Text("Descrição") },
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        AnimalRepository.addGroup(newGroupName, newGroupDescription)
+                        newGroupName = ""
+                        newGroupDescription = ""
+                        showCreateGroupDialog = false
+                    },
+                    enabled = newGroupName.isNotBlank(),
+                ) {
+                    Text("Salvar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateGroupDialog = false }) {
+                    Text("Cancelar")
+                }
+            },
+        )
     }
 }
 
@@ -336,10 +390,10 @@ private fun GroupCard(group: AnimalGroup, onClick: () -> Unit) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(group.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = CurralColors.TextPrimary)
                 if (group.description.isNotBlank()) {
-                    Spacer(Modifier.height(2.dp))
-                    Text(group.description, fontSize = 12.sp, color = CurralColors.TextSecondary, maxLines = 2)
+                    Spacer(Modifier.height(4.dp))
+                    Text(group.description, fontSize = 11.sp, color = CurralColors.TextSecondary, maxLines = 1)
                 }
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 Surface(shape = RoundedCornerShape(20.dp), color = CurralColors.StatBlueBg) {
                     Text(
                         "${group.animalIds.size} animais",

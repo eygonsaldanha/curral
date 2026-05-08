@@ -32,6 +32,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ey.buriti.curral.data.AnimalRepository
+import ey.buriti.curral.model.AnimalEvent
 import ey.buriti.curral.ui.theme.CurralColors
 import kotlinx.coroutines.launch
 
@@ -411,6 +413,13 @@ private fun StatCard(
 private fun CalendarSection() {
     var month by remember { mutableStateOf(4) }   // Abril
     var year by remember { mutableStateOf(2026) }
+    var selectedDay by remember { mutableStateOf(2) }
+    val today = 2
+    val todayMonth = 4
+    val todayYear = 2026
+    val selectedDate = if (selectedDay in 1..daysInMonth(year, month)) isoDate(year, month, selectedDay) else null
+    val dayEvents = selectedDate?.let(AnimalRepository::getEventsForDay).orEmpty()
+    val dayTasks = selectedDate?.let(AnimalRepository::getTasksForDay).orEmpty()
 
     Surface(
         modifier = Modifier
@@ -433,10 +442,26 @@ private fun CalendarSection() {
                     color = CurralColors.TextPrimary
                 )
                 Row {
-                    IconButton(onClick = { if (month == 1) { month = 12; year-- } else month-- }) {
+                    IconButton(onClick = {
+                        if (month == 1) {
+                            month = 12
+                            year--
+                        } else {
+                            month--
+                        }
+                        selectedDay = 1
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Mês anterior")
                     }
-                    IconButton(onClick = { if (month == 12) { month = 1; year++ } else month++ }) {
+                    IconButton(onClick = {
+                        if (month == 12) {
+                            month = 1
+                            year++
+                        } else {
+                            month++
+                        }
+                        selectedDay = 1
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Próximo mês")
                     }
                 }
@@ -462,9 +487,6 @@ private fun CalendarSection() {
             // Day grid
             val firstDow = dayOfWeek(year, month, 1) // 0=Sun
             val totalDays = daysInMonth(year, month)
-            val today = 2    // hardcoded for demo; replace with platform date
-            val todayMonth = 4
-            val todayYear = 2026
 
             var dayCounter = 1
             for (week in 0..5) {
@@ -475,30 +497,79 @@ private fun CalendarSection() {
                         if (cellIndex < firstDow || dayCounter > totalDays) {
                             Spacer(Modifier.weight(1f).height(36.dp))
                         } else {
-                            val isToday = dayCounter == today && month == todayMonth && year == todayYear
+                            val currentDay = dayCounter
+                            val isToday = currentDay == today && month == todayMonth && year == todayYear
+                            val isSelected = currentDay == selectedDay
+                            val hasItems = AnimalRepository.getEventsForDay(isoDate(year, month, currentDay)).isNotEmpty() ||
+                                AnimalRepository.getTasksForDay(isoDate(year, month, currentDay)).isNotEmpty()
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(36.dp)
-                                    .then(
-                                        if (isToday) Modifier
-                                            .padding(2.dp)
-                                            .clip(CircleShape)
-                                            .background(CurralColors.CalendarToday)
-                                        else Modifier
-                                    ),
+                                    .padding(2.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        when {
+                                            isSelected -> CurralColors.FabGreen
+                                            isToday -> CurralColors.CalendarToday
+                                            else -> Color.Transparent
+                                        },
+                                    )
+                                    .clickable { selectedDay = currentDay },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    text = dayCounter.toString(),
-                                    fontSize = 14.sp,
-                                    color = if (isToday) Color.White else CurralColors.TextPrimary,
-                                    textAlign = TextAlign.Center
-                                )
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = currentDay.toString(),
+                                        fontSize = 14.sp,
+                                        color = if (isToday || isSelected) Color.White else CurralColors.TextPrimary,
+                                        textAlign = TextAlign.Center,
+                                    )
+                                    if (hasItems) {
+                                        Box(
+                                            modifier = Modifier
+                                                .padding(top = 1.dp)
+                                                .size(4.dp)
+                                                .clip(CircleShape)
+                                                .background(if (isToday || isSelected) Color.White else CurralColors.FabGreen),
+                                        )
+                                    }
+                                }
                             }
                             dayCounter++
                         }
                     }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = "Agenda de ${selectedDate?.let(::formatIsoDate).orEmpty()}",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = CurralColors.TextPrimary,
+            )
+            Spacer(Modifier.height(8.dp))
+            if (dayEvents.isEmpty() && dayTasks.isEmpty()) {
+                Text(
+                    "Nenhum evento ou tarefa para este dia.",
+                    fontSize = 13.sp,
+                    color = CurralColors.TextSecondary,
+                )
+            } else {
+                dayTasks.forEach { task ->
+                    AgendaRow(
+                        emoji = "✅",
+                        title = task.title,
+                        subtitle = task.notes.ifBlank { "Tarefa do dia" },
+                    )
+                }
+                dayEvents.forEach { event ->
+                    AgendaRow(
+                        emoji = event.type.emoji,
+                        title = event.type.label,
+                        subtitle = buildEventSubtitle(event),
+                    )
                 }
             }
         }
@@ -530,3 +601,42 @@ private fun daysInMonth(year: Int, month: Int): Int = when (month) {
     else -> 30
 }
 
+@Composable
+private fun AgendaRow(emoji: String, title: String, subtitle: String) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = CurralColors.Background,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(emoji, fontSize = 18.sp)
+            Spacer(Modifier.width(10.dp))
+            Column {
+                Text(title, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = CurralColors.TextPrimary)
+                Text(subtitle, fontSize = 12.sp, color = CurralColors.TextSecondary)
+            }
+        }
+    }
+}
+
+private fun buildEventSubtitle(event: AnimalEvent): String {
+    val animalName = event.animalId.takeIf { it.isNotBlank() }?.let { AnimalRepository.getAnimal(it)?.name }
+    val groupName = event.groupId?.let { AnimalRepository.getGroup(it)?.name }
+    val target = animalName ?: groupName ?: "Evento geral"
+    val details = listOf(event.time.takeIf { it.isNotBlank() }, event.notes.takeIf { it.isNotBlank() })
+        .filterNotNull()
+        .joinToString(" • ")
+    return listOf(target, details).filter { it.isNotBlank() }.joinToString(" — ")
+}
+
+private fun isoDate(year: Int, month: Int, day: Int): String = "%04d-%02d-%02d".format(year, month, day)
+
+private fun formatIsoDate(date: String): String {
+    val parts = date.split("-")
+    return if (parts.size == 3) "${parts[2]}/${parts[1]}/${parts[0]}" else date
+}
