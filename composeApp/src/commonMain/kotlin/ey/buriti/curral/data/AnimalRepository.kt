@@ -254,9 +254,11 @@ object AnimalRepository {
 
     fun registerGestationResult(animalId: String, resultType: GestationResultType, date: String, notes: String) {
         val animal = getAnimal(animalId) ?: return
-        val summary = listOf("Resultado da gestação: ${resultType.label}", notes.trim())
-            .filter { it.isNotBlank() }
-            .joinToString(" — ")
+        val summary = if (notes.isBlank()) {
+            "Resultado da gestação: ${resultType.label}"
+        } else {
+            "Resultado da gestação: ${resultType.label} — ${notes.trim()}"
+        }
 
         addEvent(
             AnimalEvent(
@@ -278,9 +280,12 @@ object AnimalRepository {
 
     fun getGroup(id: String) = groups.find { it.id == id }
 
-    fun getEventsForAnimal(animalId: String): List<AnimalEvent> = events
-        .filter { it.animalId == animalId || (it.groupId != null && groupContainsAnimal(it.groupId, animalId)) }
+    fun getEventsForAnimal(animalId: String): List<AnimalEvent> {
+        val animalGroups = getGroupsForAnimal(animalId).map { it.id }.toSet()
+        return events
+        .filter { it.animalId == animalId || (it.groupId != null && it.groupId in animalGroups) }
         .sortedWith(compareByDescending<AnimalEvent> { it.date }.thenByDescending { it.time })
+    }
 
     fun getEventsForDay(date: String): List<AnimalEvent> = events
         .filter { it.date == date }
@@ -307,8 +312,4 @@ object AnimalRepository {
     fun getWeightHistory(animalId: String): List<AnimalEvent> = getEventsForAnimal(animalId)
         .filter { it.type == EventType.CONTROLE_PESO && it.weightKg != null }
         .sortedByDescending { it.date }
-
-    private fun groupContainsAnimal(groupId: String, animalId: String): Boolean {
-        return getGroup(groupId)?.animalIds?.contains(animalId) == true
-    }
 }

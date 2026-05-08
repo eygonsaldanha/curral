@@ -39,6 +39,7 @@ import ey.buriti.curral.model.Animal
 import ey.buriti.curral.model.AnimalSex
 import ey.buriti.curral.model.AnimalStatus
 import ey.buriti.curral.model.AnimalType
+import ey.buriti.curral.platform.getCurrentDate
 import ey.buriti.curral.ui.screens.statusColors
 import ey.buriti.curral.ui.theme.CurralColors
 
@@ -183,7 +184,7 @@ fun AnimalFormSheetContent(
             AnimalFormField("Peso (kg)", modifier = Modifier.weight(1f)) {
                 OutlinedTextField(
                     value = weight,
-                    onValueChange = { weight = it.filter { char -> char.isDigit() || char == '.' } },
+                    onValueChange = { weight = it.filter { c -> c.isDigit() || c == '.' } },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
                     placeholder = { Text("500") },
@@ -365,11 +366,11 @@ private fun AnimalFormField(
 }
 
 private fun parseBirthDate(ddMmYyyy: String): String {
-    val parts = ddMmYyyy.trim().split("/")
-    return if (parts.size == 3) {
-        "${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}"
+    val parsed = ddMmYyyy.trim().split("/")
+    return if (parsed.size == 3) {
+        "${parsed[2]}-${parsed[1].padStart(2, '0')}-${parsed[0].padStart(2, '0')}"
     } else {
-        "2026-01-01"
+        getCurrentDate().toIsoDateString()
     }
 }
 

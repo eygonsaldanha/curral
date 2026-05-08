@@ -364,7 +364,9 @@ private fun EventoFormContent(
     var selectedType by remember { mutableStateOf<EventType?>(null) }
     var date by remember { mutableStateOf("07/05/2026") }
     var time by remember { mutableStateOf("") }
-    var assignToAnimal by remember(preselectedAnimalId, preselectedGroupId) { mutableStateOf(preselectedGroupId == null) }
+    var assignToAnimal by remember(preselectedAnimalId, preselectedGroupId) {
+        mutableStateOf(preselectedAnimalId != null || preselectedGroupId == null)
+    }
     var selectedAnimalId by remember(preselectedAnimalId) { mutableStateOf(preselectedAnimalId) }
     var selectedGroupId by remember(preselectedGroupId) { mutableStateOf(preselectedGroupId) }
     var description by remember { mutableStateOf("") }

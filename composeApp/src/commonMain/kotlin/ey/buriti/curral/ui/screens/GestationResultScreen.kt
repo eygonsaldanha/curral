@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ey.buriti.curral.data.AnimalRepository
 import ey.buriti.curral.data.GestationResultType
+import ey.buriti.curral.platform.getCurrentDate
 import ey.buriti.curral.ui.theme.CurralColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,9 +45,11 @@ fun GestationResultScreen(
     modifier: Modifier = Modifier,
 ) {
     val animal = AnimalRepository.getAnimal(animalId) ?: return
+    val today = remember { getCurrentDate().toDisplayDateString() }
     var resultType by remember { mutableStateOf(GestationResultType.PARTO_CONCLUIDO) }
-    var date by remember { mutableStateOf("08/05/2026") }
+    var date by remember { mutableStateOf(today) }
     var notes by remember { mutableStateOf("") }
+    var dateError by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -95,10 +98,17 @@ fun GestationResultScreen(
                         }
                     }
                     OutlinedTextField(value = date, onValueChange = { date = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Data") })
+                    dateError?.let { Text(it, color = Color.Red, fontSize = 12.sp) }
                     OutlinedTextField(value = notes, onValueChange = { notes = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Observações") })
                     Button(
                         onClick = {
-                            AnimalRepository.registerGestationResult(animalId, resultType, date.toIsoDate(), notes)
+                            val isoDate = date.toIsoDateOrNull()
+                            if (isoDate == null) {
+                                dateError = "Informe a data no formato DD/MM/AAAA."
+                                return@Button
+                            }
+                            dateError = null
+                            AnimalRepository.registerGestationResult(animalId, resultType, isoDate, notes)
                             onBack()
                         },
                         modifier = Modifier.fillMaxWidth(),

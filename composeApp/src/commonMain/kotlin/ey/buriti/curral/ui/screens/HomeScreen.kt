@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ey.buriti.curral.data.AnimalRepository
 import ey.buriti.curral.model.AnimalEvent
+import ey.buriti.curral.platform.getCurrentDate
 import ey.buriti.curral.ui.theme.CurralColors
 import kotlinx.coroutines.launch
 
@@ -411,12 +412,10 @@ private fun StatCard(
 
 @Composable
 private fun CalendarSection() {
-    var month by remember { mutableStateOf(4) }   // Abril
-    var year by remember { mutableStateOf(2026) }
-    var selectedDay by remember { mutableStateOf(2) }
-    val today = 2
-    val todayMonth = 4
-    val todayYear = 2026
+    val today = remember { getCurrentDate() }
+    var month by remember { mutableStateOf(today.month) }
+    var year by remember { mutableStateOf(today.year) }
+    var selectedDay by remember { mutableStateOf(today.day) }
     val selectedDate = if (selectedDay in 1..daysInMonth(year, month)) isoDate(year, month, selectedDay) else null
     val dayEvents = selectedDate?.let(AnimalRepository::getEventsForDay).orEmpty()
     val dayTasks = selectedDate?.let(AnimalRepository::getTasksForDay).orEmpty()
@@ -498,7 +497,7 @@ private fun CalendarSection() {
                             Spacer(Modifier.weight(1f).height(36.dp))
                         } else {
                             val currentDay = dayCounter
-                            val isToday = currentDay == today && month == todayMonth && year == todayYear
+                            val isToday = currentDay == today.day && month == today.month && year == today.year
                             val isSelected = currentDay == selectedDay
                             val hasItems = AnimalRepository.getEventsForDay(isoDate(year, month, currentDay)).isNotEmpty() ||
                                 AnimalRepository.getTasksForDay(isoDate(year, month, currentDay)).isNotEmpty()
@@ -634,7 +633,8 @@ private fun buildEventSubtitle(event: AnimalEvent): String {
     return listOf(target, details).filter { it.isNotBlank() }.joinToString(" — ")
 }
 
-private fun isoDate(year: Int, month: Int, day: Int): String = "%04d-%02d-%02d".format(year, month, day)
+private fun isoDate(year: Int, month: Int, day: Int): String =
+    "${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}"
 
 private fun formatIsoDate(date: String): String {
     val parts = date.split("-")

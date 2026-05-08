@@ -56,6 +56,7 @@ fun EditGestationScreen(
     var notes by remember { mutableStateOf(gestation.notes) }
     var selectedFatherId by remember { mutableStateOf(gestation.fatherId) }
     var expanded by remember { mutableStateOf(false) }
+    var dateError by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -105,13 +106,21 @@ fun EditGestationScreen(
                             }
                         }
                     }
+                    dateError?.let { Text(it, color = Color.Red, fontSize = 12.sp) }
                     OutlinedTextField(value = notes, onValueChange = { notes = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Observações") })
                     Button(
                         onClick = {
+                            val startIso = startDate.toIsoDateOrNull()
+                            val expectedIso = expectedBirthDate.toIsoDateOrNull()
+                            if (startIso == null || expectedIso == null) {
+                                dateError = "Use o formato DD/MM/AAAA nas datas."
+                                return@Button
+                            }
+                            dateError = null
                             AnimalRepository.updateGestation(
                                 gestation.copy(
-                                    startDate = startDate.toIsoDate(),
-                                    expectedBirthDate = expectedBirthDate.toIsoDate(),
+                                    startDate = startIso,
+                                    expectedBirthDate = expectedIso,
                                     notes = notes,
                                     fatherId = selectedFatherId,
                                 ),

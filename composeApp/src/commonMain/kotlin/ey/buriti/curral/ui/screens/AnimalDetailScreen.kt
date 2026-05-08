@@ -58,6 +58,7 @@ import ey.buriti.curral.model.AnimalGroup
 import ey.buriti.curral.model.AnimalSex
 import ey.buriti.curral.model.EventType
 import ey.buriti.curral.model.Gestation
+import ey.buriti.curral.platform.getCurrentDate
 import ey.buriti.curral.ui.theme.CurralColors
 
 private val GestationPurple = Color(0xFF7C3AED)
@@ -524,9 +525,11 @@ internal fun SectionTitle(title: String) {
 
 @Composable
 private fun WeightDialog(animal: Animal, onDismiss: () -> Unit) {
+    val today = remember { getCurrentDate().toDisplayDateString() }
     var weight by remember(animal.id) { mutableStateOf(animal.weightKg.toInt().toString()) }
-    var date by remember { mutableStateOf("08/05/2026") }
+    var date by remember { mutableStateOf(today) }
     var notes by remember { mutableStateOf("") }
+    var dateError by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -536,7 +539,7 @@ private fun WeightDialog(animal: Animal, onDismiss: () -> Unit) {
                 Text("Registrar novo peso para ${animal.name}.")
                 androidx.compose.material3.OutlinedTextField(
                     value = weight,
-                    onValueChange = { weight = it.filter { char -> char.isDigit() || char == '.' } },
+                    onValueChange = { weight = it.filter { c -> c.isDigit() || c == '.' } },
                     label = { Text("Peso (kg)") },
                     singleLine = true,
                 )
@@ -551,12 +554,19 @@ private fun WeightDialog(animal: Animal, onDismiss: () -> Unit) {
                     onValueChange = { notes = it },
                     label = { Text("Observação") },
                 )
+                dateError?.let { Text(it, color = Color.Red, fontSize = 12.sp) }
             }
         },
         confirmButton = {
             TextButton(
                 onClick = {
-                    AnimalRepository.saveWeightRecord(animal.id, weight.toDoubleOrNull() ?: animal.weightKg, date.toIsoDate(), notes)
+                    val isoDate = date.toIsoDateOrNull()
+                    if (isoDate == null) {
+                        dateError = "Informe a data no formato DD/MM/AAAA."
+                        return@TextButton
+                    }
+                    dateError = null
+                    AnimalRepository.saveWeightRecord(animal.id, weight.toDoubleOrNull() ?: animal.weightKg, isoDate, notes)
                     onDismiss()
                 },
                 enabled = weight.isNotBlank(),
