@@ -1,14 +1,17 @@
 package ey.buriti.curral.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
@@ -22,62 +25,100 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ey.buriti.curral.ui.theme.CurralColors
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(modifier: Modifier = Modifier) {
+fun HomeScreen(
+    onNavigateToProfile: () -> Unit = {},
+    onNavigateToAnimais: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
+    val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    var searchQuery by remember { mutableStateOf("") }
+    var showNotifications by remember { mutableStateOf(false) }
+    var showAllAlerts by remember { mutableStateOf(false) }
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(CurralColors.Background)
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
     ) {
-        TopBar()
-        SearchBar()
+        TopBar(
+            onProfileClick = onNavigateToProfile,
+            onCalendarClick = { scope.launch { scrollState.animateScrollTo(Int.MAX_VALUE) } },
+            onNotificationsClick = { showNotifications = true },
+        )
+        SearchBar(
+            query = searchQuery,
+            onQueryChange = { searchQuery = it },
+            onSearch = { onNavigateToAnimais() },
+        )
         Spacer(Modifier.height(16.dp))
-        AlertsSection()
+        AlertsSection(onViewAll = { showAllAlerts = true })
         Spacer(Modifier.height(16.dp))
         StatsSection()
         Spacer(Modifier.height(16.dp))
         CalendarSection()
         Spacer(Modifier.height(24.dp))
     }
+
+    if (showNotifications) {
+        NotificationsSheet(onDismiss = { showNotifications = false })
+    }
+    if (showAllAlerts) {
+        AllAlertsSheet(onDismiss = { showAllAlerts = false })
+    }
 }
 
 // ─── Top Bar ────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun TopBar() {
+private fun TopBar(
+    onProfileClick: () -> Unit,
+    onCalendarClick: () -> Unit,
+    onNotificationsClick: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Avatar placeholder
+        // Avatar placeholder — clicável para abrir perfil
         Box(
             modifier = Modifier
                 .size(48.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF37474F)),
+                .background(Color(0xFF37474F))
+                .clickable(onClick = onProfileClick),
             contentAlignment = Alignment.Center
         ) {
             Text("JS", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .clickable(onClick = onProfileClick)
+        ) {
             Text("Bom dia!", fontSize = 13.sp, color = CurralColors.TextSecondary)
             Text("João Silva", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = CurralColors.TextPrimary)
         }
-        IconButton(onClick = { /* TODO: abrir calendário */ }) {
+        IconButton(onClick = onCalendarClick) {
             Icon(Icons.Outlined.CalendarMonth, contentDescription = "Calendário", tint = CurralColors.TextPrimary)
         }
-        IconButton(onClick = { /* TODO: notificações */ }) {
+        IconButton(onClick = onNotificationsClick) {
             Icon(Icons.Outlined.Notifications, contentDescription = "Notificações", tint = CurralColors.TextPrimary)
         }
     }
@@ -86,28 +127,50 @@ private fun TopBar() {
 // ─── Search Bar ─────────────────────────────────────────────────────────────────
 
 @Composable
-private fun SearchBar() {
+private fun SearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSearch: () -> Unit,
+) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
             .height(48.dp),
         shape = RoundedCornerShape(12.dp),
-        color = CurralColors.SearchBackground
+        color = CurralColors.SearchBackground,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Default.Search, contentDescription = null, tint = CurralColors.TextSecondary, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(
-                "Buscar animais, eventos, estoque",
-                color = CurralColors.TextSecondary,
-                fontSize = 14.sp,
-                modifier = Modifier.weight(1f)
+            IconButton(onClick = onSearch, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.Search, contentDescription = "Buscar", tint = CurralColors.TextSecondary, modifier = Modifier.size(20.dp))
+            }
+            Spacer(Modifier.width(4.dp))
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                textStyle = TextStyle(fontSize = 14.sp, color = CurralColors.TextPrimary),
+                cursorBrush = SolidColor(CurralColors.TextPrimary),
+                decorationBox = { innerTextField ->
+                    Box {
+                        if (query.isEmpty()) {
+                            Text("Buscar animais, eventos, estoque", color = CurralColors.TextSecondary, fontSize = 14.sp)
+                        }
+                        innerTextField()
+                    }
+                },
             )
-            Icon(Icons.Default.Tune, contentDescription = "Filtros", tint = CurralColors.TextSecondary, modifier = Modifier.size(20.dp))
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Default.Close, contentDescription = "Limpar", tint = CurralColors.TextSecondary, modifier = Modifier.size(18.dp))
+                }
+            } else {
+                Icon(Icons.Default.Tune, contentDescription = "Filtros", tint = CurralColors.TextSecondary, modifier = Modifier.size(20.dp).padding(end = 8.dp))
+            }
         }
     }
 }
@@ -115,7 +178,7 @@ private fun SearchBar() {
 // ─── Alerts Section ─────────────────────────────────────────────────────────────
 
 @Composable
-private fun AlertsSection() {
+private fun AlertsSection(onViewAll: () -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -152,7 +215,8 @@ private fun AlertsSection() {
                 "Ver todos os alertas →",
                 color = CurralColors.AlertAccent,
                 fontSize = 14.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.clickable(onClick = onViewAll),
             )
         }
     }
@@ -177,6 +241,88 @@ private fun AlertItem(text: String) {
             )
             Spacer(Modifier.width(10.dp))
             Text(text, fontSize = 14.sp, color = CurralColors.TextPrimary)
+        }
+    }
+}
+
+// ─── Notification & Alert Sheets ──────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NotificationsSheet(onDismiss: () -> Unit) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 32.dp)) {
+            Text("Notificações", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = CurralColors.TextPrimary)
+            Spacer(Modifier.height(16.dp))
+            NotificationItem(
+                icon = Icons.Filled.Warning,
+                iconColor = Color(0xFFEF4444),
+                title = "Antibiótico Bovino vencido",
+                subtitle = "Venceu em 09/08/2025 — descarte recomendado",
+            )
+            Spacer(Modifier.height(12.dp))
+            NotificationItem(
+                icon = Icons.Filled.Warning,
+                iconColor = Color(0xFFF59E0B),
+                title = "Ração para Galinhas vence em breve",
+                subtitle = "Validade: 15/06/2026",
+            )
+            Spacer(Modifier.height(12.dp))
+            NotificationItem(
+                icon = Icons.Filled.WaterDrop,
+                iconColor = Color(0xFF3B82F6),
+                title = "Ração para Gado abaixo do mínimo",
+                subtitle = "Estoque atual: 150 kg (mínimo: 200 kg)",
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AllAlertsSheet(onDismiss: () -> Unit) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 32.dp)) {
+            Text("Todos os Alertas", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = CurralColors.TextPrimary)
+            Spacer(Modifier.height(16.dp))
+            AlertItem("Antibiótico bovino vencido — descarte recomendado")
+            Spacer(Modifier.height(8.dp))
+            AlertItem("Ração para Galinhas próxima ao vencimento (15/06/2026)")
+            Spacer(Modifier.height(8.dp))
+            AlertItem("Ração para Gado abaixo do nível mínimo (150 kg / mín 200 kg)")
+            Spacer(Modifier.height(8.dp))
+            AlertItem("Faísca em tratamento — verificar evolução")
+        }
+    }
+}
+
+@Composable
+private fun NotificationItem(
+    icon: ImageVector,
+    iconColor: Color,
+    title: String,
+    subtitle: String,
+) {
+    Row(verticalAlignment = Alignment.Top) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(iconColor.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = CurralColors.TextPrimary)
+            Text(subtitle, fontSize = 12.sp, color = CurralColors.TextSecondary)
         }
     }
 }
