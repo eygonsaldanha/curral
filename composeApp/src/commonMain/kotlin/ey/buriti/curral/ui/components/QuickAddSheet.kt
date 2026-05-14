@@ -141,7 +141,7 @@ private fun MenuTile(emoji: String, label: String, onClick: () -> Unit, modifier
 // ─── Shared helpers ────────────────────────────────────────────────────────────
 
 @Composable
-private fun FormHeader(title: String, onBack: () -> Unit) {
+internal fun FormHeader(title: String, onBack: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
