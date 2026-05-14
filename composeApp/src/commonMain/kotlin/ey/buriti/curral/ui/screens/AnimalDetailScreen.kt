@@ -1,19 +1,46 @@
 package ey.buriti.curral.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MonitorWeight
-import androidx.compose.material.icons.filled.People
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,16 +51,28 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ey.buriti.curral.data.AnimalRepository
-import ey.buriti.curral.model.*
+import ey.buriti.curral.model.Animal
+import ey.buriti.curral.model.AnimalEvent
+import ey.buriti.curral.model.AnimalGroup
+import ey.buriti.curral.model.AnimalSex
+import ey.buriti.curral.model.EventType
+import ey.buriti.curral.model.Gestation
+import ey.buriti.curral.platform.getCurrentDate
 import ey.buriti.curral.ui.theme.CurralColors
 
 private val GestationPurple = Color(0xFF7C3AED)
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun AnimalDetailScreen(
     animalId: String,
     onBack: () -> Unit,
     onNavigateToAnimal: (String) -> Unit,
+    onOpenAddEvent: (String) -> Unit,
+    onOpenEditAnimal: (String) -> Unit,
+    onManageGroups: (String) -> Unit,
+    onRegisterGestationResult: (String) -> Unit,
+    onEditGestation: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val animal = AnimalRepository.getAnimal(animalId)
@@ -46,19 +85,16 @@ fun AnimalDetailScreen(
     }
 
     val events = AnimalRepository.getEventsForAnimal(animalId)
+    val weightHistory = AnimalRepository.getWeightHistory(animalId)
     val gestation = animal.gestationId?.let { AnimalRepository.getGestation(it) }
     val mother = animal.motherId?.let { AnimalRepository.getAnimal(it) }
     val father = animal.fatherId?.let { AnimalRepository.getAnimal(it) }
     val offspring = animal.offspringIds.mapNotNull { AnimalRepository.getAnimal(it) }
-    val groups = animal.groupIds.mapNotNull { AnimalRepository.getGroup(it) }
-
-    var showAddEventDialog by remember { mutableStateOf(false) }
+    val groups = AnimalRepository.getGroupsForAnimal(animalId)
     var showWeightDialog by remember { mutableStateOf(false) }
 
     Scaffold(
-        topBar = {
-            AnimalDetailTopBar(onBack = onBack)
-        },
+        topBar = { AnimalDetailTopBar(onBack = onBack) },
         containerColor = CurralColors.Background,
     ) { paddingValues ->
         LazyColumn(
@@ -68,35 +104,31 @@ fun AnimalDetailScreen(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // ── Profile header ─────────────────────────────────────────────────
-            item {
-                ProfileHeaderCard(animal = animal)
-            }
-
-            // ── Info grid ──────────────────────────────────────────────────────
-            item {
-                InfoGridCard(animal = animal)
-            }
-
-            // ── Gestation ─────────────────────────────────────────────────────
+            item { ProfileHeaderCard(animal = animal) }
+            item { InfoGridCard(animal = animal) }
             if (gestation != null) {
-                item { GestationCard(gestation = gestation, father = father) }
+                item {
+                    GestationCard(
+                        gestation = gestation,
+                        father = father,
+                        onRegisterResult = { onRegisterGestationResult(animalId) },
+                        onEditGestation = { onEditGestation(animalId) },
+                    )
+                }
             }
-
-            // ── Groups ────────────────────────────────────────────────────────
-            if (groups.isNotEmpty()) {
-                item { GroupsCard(groups = groups) }
+            item {
+                GroupsCard(groups = groups, onManageGroups = { onManageGroups(animalId) })
             }
-
-            // ── Quick actions ──────────────────────────────────────────────────
             item {
                 QuickActionsCard(
                     onWeightClick = { showWeightDialog = true },
-                    onEventClick = { showAddEventDialog = true },
+                    onEventClick = { onOpenAddEvent(animalId) },
+                    onEditAnimalClick = { onOpenEditAnimal(animalId) },
                 )
             }
-
-            // ── Parents ───────────────────────────────────────────────────────
+            if (weightHistory.isNotEmpty()) {
+                item { WeightHistoryCard(weightHistory) }
+            }
             if (mother != null || father != null) {
                 item {
                     ParentsCard(
@@ -106,34 +138,23 @@ fun AnimalDetailScreen(
                     )
                 }
             }
-
-            // ── Offspring ─────────────────────────────────────────────────────
             if (offspring.isNotEmpty()) {
-                item {
-                    OffspringCard(offspring = offspring, onNavigateToAnimal = onNavigateToAnimal)
-                }
+                item { OffspringCard(offspring = offspring, onNavigateToAnimal = onNavigateToAnimal) }
             }
-
-            // ── Event history ─────────────────────────────────────────────────
-            item {
-                EventHistoryCard(events = events)
-            }
-
+            item { EventHistoryCard(events = events) }
             item { Spacer(Modifier.height(8.dp)) }
         }
     }
 
-    if (showAddEventDialog) {
-        AddEventDialog(animalName = animal.name, onDismiss = { showAddEventDialog = false })
-    }
     if (showWeightDialog) {
-        WeightDialog(animalName = animal.name, onDismiss = { showWeightDialog = false })
+        WeightDialog(
+            animal = animal,
+            onDismiss = { showWeightDialog = false },
+        )
     }
 }
 
-// ─── Top Bar ───────────────────────────────────────────────────────────────────
-
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun AnimalDetailTopBar(onBack: () -> Unit) {
     TopAppBar(
@@ -146,8 +167,6 @@ private fun AnimalDetailTopBar(onBack: () -> Unit) {
         colors = TopAppBarDefaults.topAppBarColors(containerColor = CurralColors.Background),
     )
 }
-
-// ─── Profile Header Card ───────────────────────────────────────────────────────
 
 @Composable
 private fun ProfileHeaderCard(animal: Animal) {
@@ -169,19 +188,10 @@ private fun ProfileHeaderCard(animal: Animal) {
             ) {
                 Text(animal.type.emoji, fontSize = 34.sp)
             }
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    animal.name,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = CurralColors.TextPrimary,
-                )
-                Text(
-                    "${animal.type.label} • ${animal.breed}",
-                    fontSize = 13.sp,
-                    color = CurralColors.TextSecondary,
-                )
+                Text(animal.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = CurralColors.TextPrimary)
+                Text("${animal.type.label} • ${animal.breed}", fontSize = 13.sp, color = CurralColors.TextSecondary)
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     AnimalStatusChip(animal.status)
@@ -209,8 +219,6 @@ private fun SexChip(sex: AnimalSex) {
     }
 }
 
-// ─── Info Grid Card ────────────────────────────────────────────────────────────
-
 @Composable
 private fun InfoGridCard(animal: Animal) {
     Surface(
@@ -220,33 +228,13 @@ private fun InfoGridCard(animal: Animal) {
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
             Row(modifier = Modifier.fillMaxWidth()) {
-                InfoCell(
-                    label = "Brinco",
-                    value = "BR-${animal.tagNumber}",
-                    modifier = Modifier.weight(1f),
-                )
-                InfoCell(
-                    label = "Idade",
-                    value = ageLabel(animal.birthDate),
-                    modifier = Modifier.weight(1f),
-                )
+                InfoCell(label = "Brinco", value = "BR-${animal.tagNumber}", modifier = Modifier.weight(1f))
+                InfoCell(label = "Idade", value = ageLabel(animal.birthDate), modifier = Modifier.weight(1f))
             }
-            HorizontalDivider(
-                color = CurralColors.SearchBackground,
-                thickness = 0.5.dp,
-                modifier = Modifier.padding(vertical = 8.dp),
-            )
+            HorizontalDivider(color = CurralColors.SearchBackground, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 8.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
-                InfoCell(
-                    label = "Nascimento",
-                    value = formatDate(animal.birthDate),
-                    modifier = Modifier.weight(1f),
-                )
-                InfoCell(
-                    label = "Peso",
-                    value = "${animal.weightKg.toInt()} kg",
-                    modifier = Modifier.weight(1f),
-                )
+                InfoCell(label = "Nascimento", value = formatDate(animal.birthDate), modifier = Modifier.weight(1f))
+                InfoCell(label = "Peso Atual", value = "${animal.weightKg.toInt()} kg", modifier = Modifier.weight(1f))
             }
         }
     }
@@ -261,10 +249,13 @@ private fun InfoCell(label: String, value: String, modifier: Modifier = Modifier
     }
 }
 
-// ─── Gestation Card ────────────────────────────────────────────────────────────
-
 @Composable
-private fun GestationCard(gestation: Gestation, father: Animal?) {
+private fun GestationCard(
+    gestation: Gestation,
+    father: Animal?,
+    onRegisterResult: () -> Unit,
+    onEditGestation: () -> Unit,
+) {
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = CurralColors.Surface,
@@ -276,38 +267,38 @@ private fun GestationCard(gestation: Gestation, father: Animal?) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    "🤰 Gestação em Andamento",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = GestationPurple,
-                )
+                Text("🤰 Gestação em andamento", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = GestationPurple)
                 if (father != null) {
-                    Text(
-                        father.name,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = GestationPurple,
-                    )
+                    Text(father.name, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = GestationPurple)
                 }
             }
             Spacer(Modifier.height(12.dp))
             GestationRow("Touro", father?.name ?: "—")
-            GestationRow("Fecundação:", formatDate(gestation.startDate))
-            GestationRowWithBadge("Previsão de Parto:", formatDate(gestation.expectedBirthDate))
+            GestationRow("Fecundação", formatDate(gestation.startDate))
+            GestationRowWithBadge("Previsão de Parto", formatDate(gestation.expectedBirthDate))
             if (gestation.notes.isNotBlank()) {
                 Spacer(Modifier.height(6.dp))
                 Text(gestation.notes, fontSize = 12.sp, color = CurralColors.TextSecondary)
             }
             Spacer(Modifier.height(14.dp))
-            OutlinedButton(
-                onClick = {},
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                border = BorderStroke(1.dp, GestationPurple),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = GestationPurple),
-            ) {
-                Text("Registrar Resultado", color = GestationPurple)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = onEditGestation,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, GestationPurple),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = GestationPurple),
+                ) {
+                    Text("Editar gestação", color = GestationPurple)
+                }
+                Button(
+                    onClick = onRegisterResult,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = GestationPurple),
+                    shape = RoundedCornerShape(10.dp),
+                ) {
+                    Text("Registrar resultado")
+                }
             }
         }
     }
@@ -316,9 +307,7 @@ private fun GestationCard(gestation: Gestation, father: Animal?) {
 @Composable
 private fun GestationRow(label: String, value: String) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 3.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(label, fontSize = 13.sp, color = CurralColors.TextSecondary)
@@ -329,9 +318,7 @@ private fun GestationRow(label: String, value: String) {
 @Composable
 private fun GestationRowWithBadge(label: String, value: String) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 3.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -340,7 +327,7 @@ private fun GestationRowWithBadge(label: String, value: String) {
             Text(value, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = CurralColors.TextPrimary)
             Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFFE8F5E9)) {
                 Text(
-                    "exata",
+                    "ativa",
                     modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
                     fontSize = 10.sp,
                     color = Color(0xFF2E7D32),
@@ -351,10 +338,8 @@ private fun GestationRowWithBadge(label: String, value: String) {
     }
 }
 
-// ─── Groups Card ───────────────────────────────────────────────────────────────
-
 @Composable
-private fun GroupsCard(groups: List<AnimalGroup>) {
+private fun GroupsCard(groups: List<AnimalGroup>, onManageGroups: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = CurralColors.Surface,
@@ -367,21 +352,25 @@ private fun GroupsCard(groups: List<AnimalGroup>) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Grupos", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = CurralColors.SectionHeader)
-                TextButton(onClick = {}) {
+                TextButton(onClick = onManageGroups) {
                     Text("Gerenciar", fontSize = 13.sp, color = GestationPurple)
                 }
             }
-            Spacer(Modifier.height(4.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                groups.forEach { group ->
-                    Surface(shape = RoundedCornerShape(20.dp), color = CurralColors.SearchBackground) {
-                        Text(
-                            group.name,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = CurralColors.TextPrimary,
-                        )
+            if (groups.isEmpty()) {
+                Text("Este animal ainda não participa de grupos.", fontSize = 13.sp, color = CurralColors.TextSecondary)
+            } else {
+                Spacer(Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    groups.forEach { group ->
+                        Surface(shape = RoundedCornerShape(20.dp), color = CurralColors.SearchBackground) {
+                            Text(
+                                group.name,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = CurralColors.TextPrimary,
+                            )
+                        }
                     }
                 }
             }
@@ -389,80 +378,57 @@ private fun GroupsCard(groups: List<AnimalGroup>) {
     }
 }
 
-// ─── Quick Actions Card ────────────────────────────────────────────────────────
-
 @Composable
-private fun QuickActionsCard(onWeightClick: () -> Unit, onEventClick: () -> Unit) {
+private fun QuickActionsCard(onWeightClick: () -> Unit, onEventClick: () -> Unit, onEditAnimalClick: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = CurralColors.Surface,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Ações Rápidas", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = CurralColors.SectionHeader)
+            Text("Ações rápidas", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = CurralColors.SectionHeader)
             Spacer(Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                QuickActionButton(
-                    icon = Icons.Default.MonitorWeight,
-                    label = "Controle\nde Peso",
-                    onClick = onWeightClick,
-                    modifier = Modifier.weight(1f),
-                )
-                QuickActionButton(
-                    icon = Icons.Default.DateRange,
-                    label = "Adicionar\nEvento",
-                    onClick = onEventClick,
-                    modifier = Modifier.weight(1f),
-                )
-                QuickActionButton(
-                    icon = Icons.Default.People,
-                    label = "Editar\nPais",
-                    onClick = {},
-                    modifier = Modifier.weight(1f),
-                )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                QuickActionButton(icon = Icons.Default.MonitorWeight, label = "Controle\nde peso", onClick = onWeightClick, modifier = Modifier.weight(1f))
+                QuickActionButton(icon = Icons.Default.DateRange, label = "Adicionar\nevento", onClick = onEventClick, modifier = Modifier.weight(1f))
+                QuickActionButton(icon = Icons.Default.Edit, label = "Editar\nanimal", onClick = onEditAnimalClick, modifier = Modifier.weight(1f))
             }
         }
     }
 }
 
 @Composable
-private fun QuickActionButton(
-    icon: ImageVector,
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = CurralColors.Background,
-        modifier = modifier.clickable(onClick = onClick),
-    ) {
-        Column(
-            modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Icon(
-                icon,
-                contentDescription = label,
-                modifier = Modifier.size(22.dp),
-                tint = CurralColors.TextPrimary,
-            )
+private fun QuickActionButton(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(shape = RoundedCornerShape(12.dp), color = CurralColors.Background, modifier = modifier.clickable(onClick = onClick)) {
+        Column(modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(icon, contentDescription = label, modifier = Modifier.size(22.dp), tint = CurralColors.TextPrimary)
             Spacer(Modifier.height(6.dp))
-            Text(
-                label,
-                fontSize = 11.sp,
-                color = CurralColors.TextPrimary,
-                textAlign = TextAlign.Center,
-                lineHeight = 14.sp,
-            )
+            Text(label, fontSize = 11.sp, color = CurralColors.TextPrimary, textAlign = TextAlign.Center, lineHeight = 14.sp)
         }
     }
 }
 
-// ─── Parents Card ──────────────────────────────────────────────────────────────
+@Composable
+private fun WeightHistoryCard(weightHistory: List<AnimalEvent>) {
+    Surface(shape = RoundedCornerShape(16.dp), color = CurralColors.Surface, modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Histórico de peso", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = CurralColors.SectionHeader)
+            Spacer(Modifier.height(8.dp))
+            weightHistory.forEachIndexed { index, event ->
+                if (index > 0) {
+                    HorizontalDivider(color = CurralColors.SearchBackground, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 6.dp))
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column {
+                        Text(event.weightKg?.let { "${it.toInt()} kg" } ?: "—", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = CurralColors.TextPrimary)
+                        Text(event.notes.ifBlank { "Controle de peso" }, fontSize = 12.sp, color = CurralColors.TextSecondary)
+                    }
+                    Text(formatDate(event.date), fontSize = 12.sp, color = CurralColors.TextSecondary)
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun ParentsCard(
@@ -479,41 +445,17 @@ private fun ParentsCard(
             Text("Pais", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = CurralColors.SectionHeader)
             Spacer(Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                ParentCell(
-                    label = "Mãe",
-                    animal = mother,
-                    onClick = { mother?.let { onNavigateToAnimal(it.id) } },
-                    modifier = Modifier.weight(1f),
-                )
-                Box(
-                    modifier = Modifier
-                        .width(1.dp)
-                        .height(44.dp)
-                        .background(CurralColors.SearchBackground),
-                )
-                ParentCell(
-                    label = "Pai",
-                    animal = father,
-                    onClick = { father?.let { onNavigateToAnimal(it.id) } },
-                    modifier = Modifier.weight(1f),
-                )
+                ParentCell(label = "Mãe", animal = mother, onClick = { mother?.let { onNavigateToAnimal(it.id) } }, modifier = Modifier.weight(1f))
+                Box(modifier = Modifier.width(1.dp).height(44.dp).background(CurralColors.SearchBackground))
+                ParentCell(label = "Pai", animal = father, onClick = { father?.let { onNavigateToAnimal(it.id) } }, modifier = Modifier.weight(1f))
             }
         }
     }
 }
 
 @Composable
-private fun ParentCell(
-    label: String,
-    animal: Animal?,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier
-            .clickable(enabled = animal != null, onClick = onClick)
-            .padding(horizontal = 4.dp),
-    ) {
+private fun ParentCell(label: String, animal: Animal?, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier = modifier.clickable(enabled = animal != null, onClick = onClick).padding(horizontal = 4.dp)) {
         Text(label, fontSize = 12.sp, color = CurralColors.TextSecondary)
         Spacer(Modifier.height(4.dp))
         Text(
@@ -525,8 +467,6 @@ private fun ParentCell(
     }
 }
 
-// ─── Offspring Card ────────────────────────────────────────────────────────────
-
 @Composable
 private fun OffspringCard(offspring: List<Animal>, onNavigateToAnimal: (String) -> Unit) {
     Surface(
@@ -535,12 +475,7 @@ private fun OffspringCard(offspring: List<Animal>, onNavigateToAnimal: (String) 
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                "Filhotes (${offspring.size})",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = CurralColors.SectionHeader,
-            )
+            Text("Filhotes (${offspring.size})", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = CurralColors.SectionHeader)
             Spacer(Modifier.height(8.dp))
             offspring.forEachIndexed { index, child ->
                 if (index > 0) {
@@ -555,35 +490,16 @@ private fun OffspringCard(offspring: List<Animal>, onNavigateToAnimal: (String) 
 @Composable
 private fun OffspringRow(child: Animal, onClick: () -> Unit) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                "${child.type.emoji} ${child.name}",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = CurralColors.TextPrimary,
-            )
-            Text(
-                "Nascimento: ${formatDate(child.birthDate)}",
-                fontSize = 12.sp,
-                color = CurralColors.StatusSick,
-            )
+            Text("${child.type.emoji} ${child.name}", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = CurralColors.TextPrimary)
+            Text("Nascimento: ${formatDate(child.birthDate)}", fontSize = 12.sp, color = CurralColors.StatusSick)
         }
-        Icon(
-            Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp),
-            tint = CurralColors.NavInactive,
-        )
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.size(18.dp), tint = CurralColors.NavInactive)
     }
 }
-
-// ─── Event History Card ────────────────────────────────────────────────────────
 
 @Composable
 private fun EventHistoryCard(events: List<AnimalEvent>) {
@@ -596,19 +512,11 @@ private fun EventHistoryCard(events: List<AnimalEvent>) {
             Text("Histórico", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = CurralColors.SectionHeader)
             Spacer(Modifier.height(8.dp))
             if (events.isEmpty()) {
-                Text(
-                    "Nenhum evento registrado.",
-                    color = CurralColors.TextSecondary,
-                    fontSize = 14.sp,
-                )
+                Text("Nenhum evento registrado.", color = CurralColors.TextSecondary, fontSize = 14.sp)
             } else {
                 events.forEachIndexed { index, event ->
                     if (index > 0) {
-                        HorizontalDivider(
-                            color = CurralColors.SearchBackground,
-                            thickness = 0.5.dp,
-                            modifier = Modifier.padding(vertical = 4.dp),
-                        )
+                        HorizontalDivider(color = CurralColors.SearchBackground, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
                     }
                     EventHistoryRow(event = event)
                 }
@@ -626,34 +534,17 @@ private fun EventHistoryRow(event: AnimalEvent) {
         EventType.CONTROLE_PESO -> CurralColors.StatBlueBg
         else -> CurralColors.SearchBackground
     }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.Top) {
         Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(iconBg),
+            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(20.dp)).background(iconBg),
             contentAlignment = Alignment.Center,
         ) {
             Text(event.type.emoji, fontSize = 18.sp)
         }
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    event.type.label,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = CurralColors.TextPrimary,
-                    modifier = Modifier.weight(1f),
-                )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(event.type.label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = CurralColors.TextPrimary, modifier = Modifier.weight(1f))
                 Text(formatDate(event.date), fontSize = 12.sp, color = CurralColors.TextSecondary)
             }
             if (event.notes.isNotBlank()) {
@@ -667,47 +558,66 @@ private fun EventHistoryRow(event: AnimalEvent) {
     }
 }
 
-// ─── Reusable ─────────────────────────────────────────────────────────────────
-
 @Composable
 internal fun SectionTitle(title: String) {
-    Text(
-        title,
-        fontSize = 15.sp,
-        fontWeight = FontWeight.Bold,
-        color = CurralColors.SectionHeader,
-    )
-}
-
-// ─── Dialogs (stubs) ───────────────────────────────────────────────────────────
-
-@Composable
-private fun AddEventDialog(animalName: String, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Adicionar Evento") },
-        text = { Text("Registrar novo evento para $animalName.\n(Formulário completo em breve)") },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } },
-    )
+    Text(title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = CurralColors.SectionHeader)
 }
 
 @Composable
-private fun WeightDialog(animalName: String, onDismiss: () -> Unit) {
+private fun WeightDialog(animal: Animal, onDismiss: () -> Unit) {
+    val today = remember { getCurrentDate().toDisplayDateString() }
+    var weight by remember(animal.id) { mutableStateOf(animal.weightKg.toInt().toString()) }
+    var date by remember { mutableStateOf(today) }
+    var notes by remember { mutableStateOf("") }
+    var dateError by remember { mutableStateOf<String?>(null) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Controle de Peso") },
-        text = { Text("Registrar novo peso para $animalName.\n(Formulário completo em breve)") },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } },
+        title = { Text("Controle de peso") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Registrar novo peso para ${animal.name}.")
+                androidx.compose.material3.OutlinedTextField(
+                    value = weight,
+                    onValueChange = { weight = sanitizeDecimalInput(it) },
+                    label = { Text("Peso (kg)") },
+                    singleLine = true,
+                )
+                androidx.compose.material3.OutlinedTextField(
+                    value = date,
+                    onValueChange = { date = it },
+                    label = { Text("Data") },
+                    singleLine = true,
+                )
+                androidx.compose.material3.OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("Observação") },
+                )
+                dateError?.let { Text(it, color = Color.Red, fontSize = 12.sp) }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val isoDate = date.toIsoDateOrNull()
+                    if (isoDate == null) {
+                        dateError = "Informe a data no formato DD/MM/AAAA."
+                        return@TextButton
+                    }
+                    dateError = null
+                    AnimalRepository.saveWeightRecord(animal.id, weight.toDoubleOrNull() ?: animal.weightKg, isoDate, notes)
+                    onDismiss()
+                },
+                enabled = weight.isNotBlank(),
+            ) {
+                Text("Salvar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        },
     )
-}
-
-// ─── Helpers ───────────────────────────────────────────────────────────────────
-
-private fun formatDate(date: String): String {
-    return try {
-        val parts = date.split("-")
-        "${parts[2]}/${parts[1]}/${parts[0]}"
-    } catch (_: Exception) {
-        date
-    }
 }
