@@ -37,6 +37,11 @@ import ey.buriti.curral.ui.theme.DarkCurralColors
 import ey.buriti.curral.ui.theme.LightCurralColors
 import ey.buriti.curral.ui.theme.LocalCurralColors
 
+import ey.buriti.curral.auth.AuthState
+import ey.buriti.curral.auth.IAuthRepository
+import ey.buriti.curral.ui.screens.LoginScreen
+import org.koin.compose.koinInject
+
 @Composable
 @Preview
 fun App() {
@@ -45,6 +50,24 @@ fun App() {
     val materialColors = if (darkTheme) darkColorScheme() else lightColorScheme()
     CompositionLocalProvider(LocalCurralColors provides curralColors) {
         MaterialTheme(colorScheme = materialColors) {
+
+        val authRepo: IAuthRepository = koinInject()
+        val authState by authRepo.authState.collectAsState()
+
+        when (authState) {
+            is AuthState.Loading -> {
+                Box(modifier = Modifier.padding()) {
+                    Text("Carregando…")
+                }
+                return@MaterialTheme
+            }
+            is AuthState.Unauthenticated -> {
+                LoginScreen()
+                return@MaterialTheme
+            }
+            is AuthState.Authenticated -> Unit // continua
+        }
+
         var backStack by remember { mutableStateOf(listOf<NavigationState>(NavigationState.MainScreen(Screen.HOME))) }
         var quickAddRequest by remember { mutableStateOf<QuickAddRequest?>(null) }
         var showExitConfirmation by remember { mutableStateOf(false) }
