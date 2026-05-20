@@ -9,20 +9,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import ey.buriti.curral.auth.AuthState
-import ey.buriti.curral.auth.IAuthRepository
-import org.koin.compose.koinInject
+import ey.buriti.curral.ui.viewmodel.AuthUiState
+import ey.buriti.curral.ui.viewmodel.AuthViewModel
+import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
-fun LoginScreen() {
-    val authRepo: IAuthRepository = koinInject()
-
+fun LoginScreen(
+    vm: AuthViewModel = koinViewModel(),
+) {
+    val uiState by vm.uiState.collectAsState()
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isSignUp by remember { mutableStateOf(false) }
 
-    val scope = rememberCoroutineScope()
+    val isLoading = uiState is AuthUiState.Loading
+    val errorMessage = (uiState as? AuthUiState.Error)?.message
 
     Column(
         modifier = Modifier
@@ -34,12 +35,18 @@ fun LoginScreen() {
         Text(
             text = "Curral",
             style = MaterialTheme.typography.headlineLarge,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+        Text(
+            text = if (isSignUp) "Crie sua conta" else "Entre na sua conta",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             modifier = Modifier.padding(bottom = 32.dp),
         )
 
         OutlinedTextField(
             value = email,
-            onValueChange = { email = it },
+            onValueChange = { email = it; vm.clearError() },
             label = { Text("E-mail") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
@@ -50,7 +57,7 @@ fun LoginScreen() {
 
         OutlinedTextField(
             value = password,
-            onValueChange = { password = it },
+            onValueChange = { password = it; vm.clearError() },
             label = { Text("Senha") },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
@@ -67,13 +74,8 @@ fun LoginScreen() {
 
         Button(
             onClick = {
-                isLoading = true
-                errorMessage = null
-                kotlinx.coroutines.GlobalScope.launch {
-                    val result = authRepo.signInWithEmail(email, password)
-                    isLoading = false
-                    result.onFailure { errorMessage = it.message ?: "Erro ao entrar" }
-                }
+                if (isSignUp) vm.signUp(email, password)
+                else vm.signIn(email, password)
             },
             enabled = !isLoading && email.isNotBlank() && password.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
@@ -85,8 +87,20 @@ fun LoginScreen() {
                     color = MaterialTheme.colorScheme.onPrimary,
                 )
             } else {
-                Text("Entrar")
+                Text(if (isSignUp) "Criar conta" else "Entrar")
             }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        TextButton(
+            onClick = { isSignUp = !isSignUp; vm.clearError() },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                if (isSignUp) "Já tenho conta — Entrar"
+                else "Não tenho conta — Criar conta",
+            )
         }
     }
 }

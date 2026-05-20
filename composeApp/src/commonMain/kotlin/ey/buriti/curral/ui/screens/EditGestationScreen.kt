@@ -25,19 +25,16 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ey.buriti.curral.data.AnimalRepository
-import ey.buriti.curral.model.AnimalSex
 import ey.buriti.curral.ui.theme.CurralColors
+import ey.buriti.curral.ui.viewmodel.EditGestationViewModel
+import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,14 +43,17 @@ fun EditGestationScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val animal = AnimalRepository.getAnimal(animalId) ?: return
-    val gestation = animal.gestationId?.let(AnimalRepository::getGestation) ?: return
-    val maleAnimals = AnimalRepository.animals.filter { it.sex == AnimalSex.MACHO }
+    val vm: EditGestationViewModel = koinViewModel { parametersOf(animalId) }
+    val animal by vm.animal.collectAsState()
+    val gestation by vm.gestation.collectAsState()
+    val maleAnimals by vm.maleAnimals.collectAsState()
+    val currentAnimal = animal ?: return
+    val currentGestation = gestation ?: return
 
-    var startDate by remember { mutableStateOf(formatDate(gestation.startDate)) }
-    var expectedBirthDate by remember { mutableStateOf(formatDate(gestation.expectedBirthDate)) }
-    var notes by remember { mutableStateOf(gestation.notes) }
-    var selectedFatherId by remember { mutableStateOf(gestation.fatherId) }
+    var startDate by remember(currentGestation.id) { mutableStateOf(formatDate(currentGestation.startDate)) }
+    var expectedBirthDate by remember(currentGestation.id) { mutableStateOf(formatDate(currentGestation.expectedBirthDate)) }
+    var notes by remember(currentGestation.id) { mutableStateOf(currentGestation.notes) }
+    var selectedFatherId by remember(currentGestation.id) { mutableStateOf(currentGestation.fatherId) }
     var expanded by remember { mutableStateOf(false) }
     var dateError by remember { mutableStateOf<String?>(null) }
 
@@ -81,7 +81,7 @@ fun EditGestationScreen(
         ) {
             Surface(shape = RoundedCornerShape(16.dp), color = Color.White) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Atualizar dados da gestação de ${animal.name}", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = CurralColors.TextPrimary)
+                    Text("Atualizar dados da gestação de ${currentAnimal.name}", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = CurralColors.TextPrimary)
                     OutlinedTextField(value = startDate, onValueChange = { startDate = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Data da fecundação") })
                     OutlinedTextField(value = expectedBirthDate, onValueChange = { expectedBirthDate = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Previsão de parto") })
                     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
@@ -116,8 +116,8 @@ fun EditGestationScreen(
                                 return@Button
                             }
                             dateError = null
-                            AnimalRepository.updateGestation(
-                                gestation.copy(
+                            vm.updateGestation(
+                                currentGestation.copy(
                                     startDate = startIso,
                                     expectedBirthDate = expectedIso,
                                     notes = notes,

@@ -54,6 +54,25 @@ fun Route.gestationRoutes() {
             }
             call.respond(HttpStatusCode.NoContent)
         }
+
+        put("/{id}") {
+            val farmId = call.farmId()
+            val id = call.parameters["id"]!!
+            val dto = call.receive<GestationDto>()
+            val now = nowIso()
+            val updated = transaction {
+                Gestations.update({ (Gestations.id eq id) and (Gestations.farmId eq farmId) }) {
+                    it[Gestations.startDate] = dto.startDate
+                    it[Gestations.expectedBirthDate] = dto.expectedBirthDate
+                    it[Gestations.notes] = dto.notes
+                    it[Gestations.fatherId] = dto.fatherId
+                    it[Gestations.version] = dto.version + 1
+                    it[Gestations.updatedAt] = now
+                }
+            }
+            if (updated == 0) call.respond(HttpStatusCode.NotFound)
+            else call.respond(dto.copy(version = dto.version + 1, updatedAt = now))
+        }
     }
 }
 

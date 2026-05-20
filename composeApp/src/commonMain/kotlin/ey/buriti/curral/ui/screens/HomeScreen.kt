@@ -32,15 +32,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ey.buriti.curral.data.AnimalRepository
-import ey.buriti.curral.data.StockRepository
+import ey.buriti.curral.auth.AuthState
+import ey.buriti.curral.auth.IAuthRepository
+import ey.buriti.curral.model.Animal
 import ey.buriti.curral.model.AnimalEvent
 import ey.buriti.curral.model.AnimalStatus
 import ey.buriti.curral.model.StockItem
 import ey.buriti.curral.platform.PlatformDate
 import ey.buriti.curral.platform.getCurrentDate
 import ey.buriti.curral.ui.theme.CurralColors
+import ey.buriti.curral.ui.viewmodel.HomeViewModel
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 private data class AppAlert(
     val title: String,
@@ -59,14 +63,25 @@ fun HomeScreen(
     onNavigateToAnimal: (String) -> Unit = {},
     onNavigateToStockItem: (String) -> Unit = {},
     modifier: Modifier = Modifier,
+    vm: HomeViewModel = koinViewModel(),
+    authRepo: IAuthRepository = koinInject(),
 ) {
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
     var searchQuery by remember { mutableStateOf("") }
     var showNotifications by remember { mutableStateOf(false) }
     var showAllAlerts by remember { mutableStateOf(false) }
+    val animals by vm.animals.collectAsState()
+    val lowStockItems by vm.lowStockItems.collectAsState()
+    val upcomingEvents by vm.upcomingEvents.collectAsState()
+    val authState by authRepo.authState.collectAsState()
+    val userEmail = (authState as? AuthState.Authenticated)?.email ?: ""
+    val userInitials = userEmail.split("@").first().split(".").take(2)
+        .mapNotNull { it.firstOrNull()?.uppercaseChar() }.joinToString("").ifBlank { "?" }
+    val userName = userEmail.substringBefore("@").replace(".", " ").split(" ")
+        .take(2).joinToString(" ") { it.replaceFirstChar { c -> c.uppercaseChar() } }.ifBlank { "Olá!" }
 
-    val alerts = buildAlerts(onNavigateToStockItem, onNavigateToAnimal)
+    val alerts = buildAlerts(animals, lowStockItems, onNavigateToStockItem, onNavigateToAnimal)
 
     Column(
         modifier = modifier
@@ -75,6 +90,8 @@ fun HomeScreen(
             .verticalScroll(scrollState)
     ) {
         TopBar(
+            initials = userInitials,
+            userName = userName,
             onProfileClick = onNavigateToProfile,
             onCalendarClick = { scope.launch { scrollState.animateScrollTo(Int.MAX_VALUE) } },
             onNotificationsClick = { showNotifications = true },
@@ -91,7 +108,7 @@ fun HomeScreen(
         }
         StatsSection()
         Spacer(Modifier.height(16.dp))
-        CalendarSection()
+        CalendarSection(upcomingEvents = upcomingEvents)
         Spacer(Modifier.height(24.dp))
     }
 
@@ -107,6 +124,8 @@ fun HomeScreen(
 
 @Composable
 private fun TopBar(
+    initials: String,
+    userName: String,
     onProfileClick: () -> Unit,
     onCalendarClick: () -> Unit,
     onNotificationsClick: () -> Unit,
@@ -117,7 +136,6 @@ private fun TopBar(
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Avatar placeholder — clicável para abrir perfil
         Box(
             modifier = Modifier
                 .size(48.dp)
@@ -126,7 +144,7 @@ private fun TopBar(
                 .clickable(onClick = onProfileClick),
             contentAlignment = Alignment.Center
         ) {
-            Text("JS", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(initials, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.width(12.dp))
         Column(
@@ -135,7 +153,7 @@ private fun TopBar(
                 .clickable(onClick = onProfileClick)
         ) {
             Text("Bom dia!", fontSize = 13.sp, color = CurralColors.TextSecondary)
-            Text("João Silva", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = CurralColors.TextPrimary)
+            Text(userName, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = CurralColors.TextPrimary)
         }
         IconButton(onClick = onCalendarClick) {
             Icon(Icons.Outlined.CalendarMonth, contentDescription = "Calendário", tint = CurralColors.TextPrimary)
@@ -450,14 +468,15 @@ private fun StatCard(
 // ─── Calendar Section ───────────────────────────────────────────────────────────
 
 @Composable
-private fun CalendarSection() {
+private fun CalendarSection(upcomingEvents: List<AnimalEvent>) {
     val today = remember { getCurrentDate() }
     var month by remember { mutableStateOf(today.month) }
     var year by remember { mutableStateOf(today.year) }
     var selectedDay by remember { mutableStateOf(today.day) }
     val selectedDate = if (selectedDay in 1..daysInMonth(year, month)) toIsoDateString(year, month, selectedDay) else null
-    val dayEvents = selectedDate?.let(AnimalRepository::getEventsForDay).orEmpty()
-    val dayTasks = selectedDate?.let(AnimalRepository::getTasksForDay).orEmpty()
+    val dayEvents = selectedDate?.let { date ->
+        upcomingEvents.filter { it.date == date }.sortedBy { it.time.ifBlank { "99:99" } }
+    } ?: emptyList()
 
     Surface(
         modifier = Modifier
@@ -538,8 +557,7 @@ private fun CalendarSection() {
                             val currentDay = dayCounter
                             val isToday = currentDay == today.day && month == today.month && year == today.year
                             val isSelected = currentDay == selectedDay
-                            val hasItems = AnimalRepository.getEventsForDay(toIsoDateString(year, month, currentDay)).isNotEmpty() ||
-                                AnimalRepository.getTasksForDay(toIsoDateString(year, month, currentDay)).isNotEmpty()
+                            val hasItems = upcomingEvents.any { it.date == toIsoDateString(year, month, currentDay) }
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
@@ -588,20 +606,13 @@ private fun CalendarSection() {
                 color = CurralColors.TextPrimary,
             )
             Spacer(Modifier.height(8.dp))
-            if (dayEvents.isEmpty() && dayTasks.isEmpty()) {
+            if (dayEvents.isEmpty()) {
                 Text(
-                    "Nenhum evento ou tarefa para este dia.",
+                    "Nenhum evento para este dia.",
                     fontSize = 13.sp,
                     color = CurralColors.TextSecondary,
                 )
             } else {
-                dayTasks.forEach { task ->
-                    AgendaRow(
-                        emoji = "✅",
-                        title = task.title,
-                        subtitle = task.notes.ifBlank { "Tarefa do dia" },
-                    )
-                }
                 dayEvents.forEach { event ->
                     AgendaRow(
                         emoji = event.type.emoji,
@@ -642,10 +653,12 @@ private fun daysInMonth(year: Int, month: Int): Int = when (month) {
 // ─── Alert helpers ──────────────────────────────────────────────────────────────
 
 private fun buildAlerts(
+    animals: List<Animal>,
+    stockItems: List<StockItem>,
     onNavigateToStockItem: (String) -> Unit,
     onNavigateToAnimal: (String) -> Unit,
 ): List<AppAlert> {
-    val stockAlerts = StockRepository.items.mapNotNull { item ->
+    val stockAlerts = stockItems.mapNotNull { item ->
         when (homeStockBadge(item)) {
             "VENCIDO" -> AppAlert(
                 title = "${item.name} vencido",
@@ -668,7 +681,7 @@ private fun buildAlerts(
             else -> null
         }
     }
-    val animalAlerts = AnimalRepository.animals
+    val animalAlerts = animals
         .filter { it.status == AnimalStatus.DOENTE }
         .map { animal ->
             AppAlert(
@@ -740,13 +753,10 @@ private fun AgendaRow(emoji: String, title: String, subtitle: String) {
 }
 
 private fun buildEventSubtitle(event: AnimalEvent): String {
-    val animalName = event.animalId.takeIf { it.isNotBlank() }?.let { AnimalRepository.getAnimal(it)?.name }
-    val groupName = event.groupId?.let { AnimalRepository.getGroup(it)?.name }
-    val target = animalName ?: groupName ?: "Evento geral"
     val details = listOf(event.time.takeIf { it.isNotBlank() }, event.notes.takeIf { it.isNotBlank() })
         .filterNotNull()
         .joinToString(" • ")
-    return listOf(target, details).filter { it.isNotBlank() }.joinToString(" — ")
+    return details.ifBlank { "Evento do dia" }
 }
 
 private fun toIsoDateString(year: Int, month: Int, day: Int): String =

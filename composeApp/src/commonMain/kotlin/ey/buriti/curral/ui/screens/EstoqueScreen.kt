@@ -28,10 +28,11 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ey.buriti.curral.data.StockRepository
 import ey.buriti.curral.model.StockCategory
 import ey.buriti.curral.model.StockItem
 import ey.buriti.curral.ui.theme.CurralColors
+import ey.buriti.curral.ui.viewmodel.EstoqueViewModel
+import org.koin.compose.viewmodel.koinViewModel
 
 // ─── Badge helpers ──────────────────────────────────────────────────────────────
 
@@ -69,8 +70,9 @@ fun EstoqueScreen(
     modifier: Modifier = Modifier,
     highlightItemId: String? = null,
     onHighlightConsumed: () -> Unit = {},
+    vm: EstoqueViewModel = koinViewModel(),
 ) {
-    val items = StockRepository.items
+    val items by vm.items.collectAsState()
     var search by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<StockCategory?>(null) }
     var localHighlightId by remember { mutableStateOf<String?>(null) }
@@ -157,9 +159,9 @@ fun EstoqueScreen(
                 StockItemRow(
                     item = item,
                     isHighlighted = item.id == localHighlightId,
-                    onIncrement = { StockRepository.increment(item.id) },
-                    onDecrement = { StockRepository.decrement(item.id) },
-                    onDelete = { StockRepository.remove(item.id) },
+                    onIncrement = { vm.increment(item.id) },
+                    onDecrement = { vm.decrement(item.id) },
+                    onDelete = { vm.deleteItem(item.id) },
                 )
             }
             item { Spacer(Modifier.height(8.dp)) }

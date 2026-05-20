@@ -57,6 +57,27 @@ fun Route.eventRoutes() {
             }
             call.respond(HttpStatusCode.NoContent)
         }
+
+        put("/{id}") {
+            val farmId = call.farmId()
+            val id = call.parameters["id"]!!
+            val dto = call.receive<AnimalEventDto>()
+            val now = nowIso()
+            val updated = transaction {
+                AnimalEvents.update({ (AnimalEvents.id eq id) and (AnimalEvents.farmId eq farmId) }) {
+                    it[AnimalEvents.type] = dto.type
+                    it[AnimalEvents.date] = dto.date
+                    it[AnimalEvents.time] = dto.time
+                    it[AnimalEvents.notes] = dto.notes
+                    it[AnimalEvents.weightKg] = dto.weightKg
+                    it[AnimalEvents.groupId] = dto.groupId
+                    it[AnimalEvents.version] = dto.version + 1
+                    it[AnimalEvents.updatedAt] = now
+                }
+            }
+            if (updated == 0) call.respond(HttpStatusCode.NotFound)
+            else call.respond(dto.copy(version = dto.version + 1, updatedAt = now))
+        }
     }
 }
 

@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -16,6 +16,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ey.buriti.curral.ui.theme.CurralColors
+import ey.buriti.curral.ui.viewmodel.ProducaoViewModel
+import org.koin.compose.viewmodel.koinViewModel
 
 // ─── Data ──────────────────────────────────────────────────────────────────────
 
@@ -49,7 +51,12 @@ private val TrendGreen = Color(0xFF2E7D32)
 private val TrendRed = Color(0xFFD32F2F)
 
 @Composable
-fun ProducaoScreen(modifier: Modifier = Modifier) {
+fun ProducaoScreen(
+    modifier: Modifier = Modifier,
+    vm: ProducaoViewModel = koinViewModel(),
+) {
+    val entries by vm.entries.collectAsState()
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -58,13 +65,20 @@ fun ProducaoScreen(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            Text(
-                "Produção",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = CurralColors.TextPrimary,
-                modifier = Modifier.padding(vertical = 4.dp),
-            )
+            Column {
+                Text(
+                    "Produção",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = CurralColors.TextPrimary,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+                Text(
+                    if (entries.isEmpty()) "Nenhum registro recente" else "${entries.size} registros sincronizados",
+                    fontSize = 12.sp,
+                    color = CurralColors.TextSecondary,
+                )
+            }
         }
 
         // ── Produção de Leite (large card) ─────────────────────────────────────

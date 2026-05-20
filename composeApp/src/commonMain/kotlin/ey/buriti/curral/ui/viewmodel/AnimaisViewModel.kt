@@ -13,11 +13,8 @@ import ey.buriti.curral.model.AnimalSex
 import ey.buriti.curral.model.AnimalStatus
 import ey.buriti.curral.model.AnimalType
 import ey.buriti.curral.model.Gestation
-import ey.buriti.curral.util.nowIso
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -46,6 +43,38 @@ class AnimaisViewModel(
                 birthDate = birthDate, weightKg = weightKg,
             )
         )
+    }
+
+    fun addAnimalFromForm(
+        name: String,
+        type: AnimalType,
+        breed: String,
+        status: AnimalStatus,
+        sex: AnimalSex,
+        tagNumber: String,
+        birthDate: String,
+        weightKg: Double,
+        motherId: String? = null,
+        fatherId: String? = null,
+        onCreated: (String) -> Unit,
+    ) = viewModelScope.launch {
+        val id = animalRepo.generateAnimalId()
+        animalRepo.addAnimal(
+            Animal(
+                id = id,
+                name = name,
+                type = type,
+                breed = breed,
+                status = status,
+                sex = sex,
+                tagNumber = tagNumber,
+                birthDate = birthDate,
+                weightKg = weightKg,
+                motherId = motherId,
+                fatherId = fatherId,
+            )
+        )
+        onCreated(id)
     }
 
     fun updateAnimal(animal: Animal) = viewModelScope.launch {

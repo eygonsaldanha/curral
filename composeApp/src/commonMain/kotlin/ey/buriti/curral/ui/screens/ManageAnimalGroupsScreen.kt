@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,15 +25,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ey.buriti.curral.data.AnimalRepository
 import ey.buriti.curral.ui.theme.CurralColors
+import ey.buriti.curral.ui.viewmodel.ManageAnimalGroupsViewModel
+import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,21 +45,25 @@ fun ManageAnimalGroupsScreen(
     onNavigateToAnimal: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val animal = AnimalRepository.getAnimal(animalId)
-    if (animal == null) {
+    val vm: ManageAnimalGroupsViewModel = koinViewModel { parametersOf(animalId) }
+    val animal by vm.animal.collectAsState()
+    val currentAnimal = animal
+    if (currentAnimal == null) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Animal não encontrado", color = CurralColors.TextSecondary)
         }
         return
     }
 
-    val currentGroups = AnimalRepository.getGroupsForAnimal(animalId)
-    val availableGroups = AnimalRepository.getAvailableGroupsForAnimal(animalId)
+    val currentGroups by vm.currentGroups.collectAsState()
+    val allGroups by vm.allGroups.collectAsState()
+    val currentGroupIds = currentGroups.map { it.id }.toSet()
+    val availableGroups = allGroups.filter { it.id !in currentGroupIds }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Grupos de ${animal.name}", fontSize = 18.sp, fontWeight = FontWeight.SemiBold) },
+                title = { Text("Grupos de ${currentAnimal.name}", fontSize = 18.sp, fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
@@ -88,22 +93,8 @@ fun ManageAnimalGroupsScreen(
                                         Text(group.description, fontSize = 12.sp, color = CurralColors.TextSecondary, maxLines = 1)
                                     }
                                 }
-                                TextButton(onClick = { AnimalRepository.removeAnimalFromGroup(animalId, group.id) }) {
+                                TextButton(onClick = { vm.removeFromGroup(group.id) }) {
                                     Text("Remover")
-                                }
-                            }
-                            val otherAnimals = AnimalRepository.getAnimalsInGroup(group.id).filter { it.id != animalId }
-                            if (otherAnimals.isNotEmpty()) {
-                                Text("Outros animais no grupo", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = CurralColors.TextSecondary)
-                                otherAnimals.forEach { other ->
-                                    Text(
-                                        text = "${other.type.emoji} ${other.name}",
-                                        fontSize = 13.sp,
-                                        color = CurralColors.TextPrimary,
-                                        modifier = Modifier
-                                            .padding(start = 4.dp)
-                                            .clickable { onNavigateToAnimal(other.id) },
-                                    )
                                 }
                             }
                         }
@@ -127,7 +118,7 @@ fun ManageAnimalGroupsScreen(
                                 Text(group.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = CurralColors.TextPrimary)
                                 Text("${group.animalIds.size} animais", fontSize = 12.sp, color = CurralColors.TextSecondary)
                             }
-                            TextButton(onClick = { AnimalRepository.addAnimalToGroup(animalId, group.id) }) {
+                            TextButton(onClick = { vm.addToGroup(group.id) }) {
                                 Text("Adicionar")
                             }
                         }

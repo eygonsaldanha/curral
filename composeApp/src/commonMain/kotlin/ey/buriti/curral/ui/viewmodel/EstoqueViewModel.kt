@@ -18,8 +18,8 @@ class EstoqueViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun addItem(
-        name: String, category: StockCategory, quantity: Double,
-        unit: String, expiryDate: String?, lowStockThreshold: Double,
+        name: String, category: StockCategory, quantity: Int,
+        unit: String, expiryDate: String?, lowStockThreshold: Int,
     ) = viewModelScope.launch {
         val id = stockRepo.generateId()
         stockRepo.addItem(

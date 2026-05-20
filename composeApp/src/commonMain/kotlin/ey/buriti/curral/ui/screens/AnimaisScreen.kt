@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,18 +24,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ey.buriti.curral.data.AnimalRepository
 import ey.buriti.curral.model.Animal
 import ey.buriti.curral.model.AnimalGroup
 import ey.buriti.curral.model.AnimalStatus
 import ey.buriti.curral.model.AnimalType
 import ey.buriti.curral.ui.theme.CurralColors
+import ey.buriti.curral.ui.viewmodel.AnimaisViewModel
+import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun AnimaisScreen(
     onNavigateToAnimal: (String) -> Unit,
     onNavigateToGroup: (String) -> Unit,
     modifier: Modifier = Modifier,
+    vm: AnimaisViewModel = koinViewModel(),
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf<AnimalType?>(null) }
@@ -43,25 +46,26 @@ fun AnimaisScreen(
     var newGroupName by remember { mutableStateOf("") }
     var newGroupDescription by remember { mutableStateOf("") }
 
-    val allAnimals = AnimalRepository.animals
-    val filteredAnimals = allAnimals.filter { animal ->
-            val matchesQuery = searchQuery.isBlank() ||
-                animal.name.contains(searchQuery, ignoreCase = true) ||
-                animal.tagNumber.contains(searchQuery, ignoreCase = true)
-            val matchesType = selectedType == null || animal.type == selectedType
-            matchesQuery && matchesType
-        }
+    val allAnimals by vm.animals.collectAsState()
+    val groups by vm.groups.collectAsState()
 
-    val totalCount = AnimalRepository.animals.size
-    val healthyCount = AnimalRepository.animals.count { it.status == AnimalStatus.SAUDAVEL }
-    val pregnantCount = AnimalRepository.animals.count { it.status == AnimalStatus.PRENHA }
+    val filteredAnimals = allAnimals.filter { animal ->
+        val matchesQuery = searchQuery.isBlank() ||
+            animal.name.contains(searchQuery, ignoreCase = true) ||
+            animal.tagNumber.contains(searchQuery, ignoreCase = true)
+        val matchesType = selectedType == null || animal.type == selectedType
+        matchesQuery && matchesType
+    }
+
+    val totalCount = allAnimals.size
+    val healthyCount = allAnimals.count { it.status == AnimalStatus.SAUDAVEL }
+    val pregnantCount = allAnimals.count { it.status == AnimalStatus.PRENHA }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(CurralColors.Background)
     ) {
-        // ── Header ─────────────────────────────────────────────────────────────
         Column(modifier = Modifier.background(CurralColors.Surface).padding(horizontal = 20.dp, vertical = 16.dp)) {
             Text(
                 "Animais",
@@ -75,7 +79,6 @@ fun AnimaisScreen(
             AnimaisSearchBar(query = searchQuery, onQueryChange = { searchQuery = it })
         }
 
-        // ── Quick type filter carousel ──────────────────────────────────────────
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -96,7 +99,6 @@ fun AnimaisScreen(
 
         HorizontalDivider(color = CurralColors.SearchBackground)
 
-        // ── View toggle (Lista / Grupos) ────────────────────────────────────────
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -110,7 +112,6 @@ fun AnimaisScreen(
 
         HorizontalDivider(color = CurralColors.SearchBackground)
 
-        // ── Content ────────────────────────────────────────────────────────────
         if (showGroups) {
             Row(
                 modifier = Modifier
@@ -124,7 +125,7 @@ fun AnimaisScreen(
                 }
             }
             GroupsListView(
-                groups = AnimalRepository.groups,
+                groups = groups,
                 onGroupClick = onNavigateToGroup,
             )
         } else {
@@ -157,7 +158,7 @@ fun AnimaisScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        AnimalRepository.addGroup(newGroupName, newGroupDescription)
+                        vm.addGroup(newGroupName, newGroupDescription)
                         newGroupName = ""
                         newGroupDescription = ""
                         showCreateGroupDialog = false

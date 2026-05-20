@@ -37,6 +37,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,7 +51,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ey.buriti.curral.data.AnimalRepository
 import ey.buriti.curral.model.Animal
 import ey.buriti.curral.model.AnimalEvent
 import ey.buriti.curral.model.AnimalGroup
@@ -59,6 +59,9 @@ import ey.buriti.curral.model.EventType
 import ey.buriti.curral.model.Gestation
 import ey.buriti.curral.platform.getCurrentDate
 import ey.buriti.curral.ui.theme.CurralColors
+import ey.buriti.curral.ui.viewmodel.AnimalDetailViewModel
+import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 private val GestationPurple = Color(0xFF7C3AED)
 
@@ -75,22 +78,25 @@ fun AnimalDetailScreen(
     onEditGestation: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val animal = AnimalRepository.getAnimal(animalId)
+    val vm: AnimalDetailViewModel = koinViewModel { parametersOf(animalId) }
+    val animal by vm.animal.collectAsState()
+    val events by vm.events.collectAsState()
+    val gestation by vm.gestation.collectAsState()
+    val allAnimals by vm.allAnimals.collectAsState()
+    val groups by vm.groups.collectAsState()
+    val weightHistory by vm.weightHistory.collectAsState()
+    val currentAnimal = animal
 
-    if (animal == null) {
+    if (currentAnimal == null) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Animal não encontrado", color = CurralColors.TextSecondary)
         }
         return
     }
 
-    val events = AnimalRepository.getEventsForAnimal(animalId)
-    val weightHistory = AnimalRepository.getWeightHistory(animalId)
-    val gestation = animal.gestationId?.let { AnimalRepository.getGestation(it) }
-    val mother = animal.motherId?.let { AnimalRepository.getAnimal(it) }
-    val father = animal.fatherId?.let { AnimalRepository.getAnimal(it) }
-    val offspring = animal.offspringIds.mapNotNull { AnimalRepository.getAnimal(it) }
-    val groups = AnimalRepository.getGroupsForAnimal(animalId)
+    val mother = currentAnimal.motherId?.let { id -> allAnimals.find { it.id == id } }
+    val father = currentAnimal.fatherId?.let { id -> allAnimals.find { it.id == id } }
+    val offspring = currentAnimal.offspringIds.mapNotNull { id -> allAnimals.find { it.id == id } }
     var showWeightDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -104,8 +110,8 @@ fun AnimalDetailScreen(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item { ProfileHeaderCard(animal = animal) }
-            item { InfoGridCard(animal = animal) }
+            item { ProfileHeaderCard(animal = currentAnimal) }
+            item { InfoGridCard(animal = currentAnimal) }
             if (gestation != null) {
                 item {
                     GestationCard(
@@ -148,8 +154,9 @@ fun AnimalDetailScreen(
 
     if (showWeightDialog) {
         WeightDialog(
-            animal = animal,
+            animal = currentAnimal,
             onDismiss = { showWeightDialog = false },
+            onSave = { weightKg, date, notes -> vm.saveWeightRecord(weightKg, date, notes) },
         )
     }
 }
@@ -564,7 +571,11 @@ internal fun SectionTitle(title: String) {
 }
 
 @Composable
-private fun WeightDialog(animal: Animal, onDismiss: () -> Unit) {
+private fun WeightDialog(
+    animal: Animal,
+    onDismiss: () -> Unit,
+    onSave: (Double, String, String) -> Unit,
+) {
     val today = remember { getCurrentDate().toDisplayDateString() }
     var weight by remember(animal.id) { mutableStateOf(animal.weightKg.toInt().toString()) }
     var date by remember { mutableStateOf(today) }
@@ -606,7 +617,7 @@ private fun WeightDialog(animal: Animal, onDismiss: () -> Unit) {
                         return@TextButton
                     }
                     dateError = null
-                    AnimalRepository.saveWeightRecord(animal.id, weight.toDoubleOrNull() ?: animal.weightKg, isoDate, notes)
+                    onSave(weight.toDoubleOrNull() ?: animal.weightKg, isoDate, notes)
                     onDismiss()
                 },
                 enabled = weight.isNotBlank(),

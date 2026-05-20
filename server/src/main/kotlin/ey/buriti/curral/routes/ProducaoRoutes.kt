@@ -54,6 +54,26 @@ fun Route.producaoRoutes() {
             }
             call.respond(HttpStatusCode.NoContent)
         }
+
+        put("/{id}") {
+            val farmId = call.farmId()
+            val id = call.parameters["id"]!!
+            val dto = call.receive<ProducaoEntryDto>()
+            val now = nowIso()
+            val updated = transaction {
+                ProducaoEntries.update({ (ProducaoEntries.id eq id) and (ProducaoEntries.farmId eq farmId) }) {
+                    it[ProducaoEntries.productType] = dto.productType
+                    it[ProducaoEntries.quantity] = dto.quantity
+                    it[ProducaoEntries.unit] = dto.unit
+                    it[ProducaoEntries.date] = dto.date
+                    it[ProducaoEntries.notes] = dto.notes
+                    it[ProducaoEntries.version] = dto.version + 1
+                    it[ProducaoEntries.updatedAt] = now
+                }
+            }
+            if (updated == 0) call.respond(HttpStatusCode.NotFound)
+            else call.respond(dto.copy(version = dto.version + 1, updatedAt = now))
+        }
     }
 }
 

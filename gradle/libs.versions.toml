@@ -23,7 +23,7 @@ room = "2.7.1"
 ksp = "2.3.8"
 workmanager = "2.10.1"
 koin = "4.0.4"
-supabase = "3.2.0"
+supabase = "2.6.1"
 kotlinx-serialization = "1.8.1"
 # Server stack
 exposed = "0.61.0"
