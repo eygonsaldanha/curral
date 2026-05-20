@@ -15,14 +15,14 @@ import org.koin.dsl.module
 
 val viewModelModule = module {
     factory { AuthViewModel(get()) }
-    factory { AnimaisViewModel(get(), get(), get(), get()) }
-    factory { (animalId: String) -> AnimalDetailViewModel(animalId, get(), get(), get()) }
-    factory { HomeViewModel(get(), get(), get(), get(), get(), get()) }
-    factory { EstoqueViewModel(get()) }
-    factory { ProducaoViewModel(get()) }
+    factory { AnimaisViewModel(get(), get(), get(), get(), get()) }
+    factory { (animalId: String) -> AnimalDetailViewModel(animalId, get(), get(), get(), get()) }
+    factory { HomeViewModel(get(), get(), get(), get(), get(), get(), get()) }
+    factory { EstoqueViewModel(get(), get()) }
+    factory { ProducaoViewModel(get(), get()) }
     factory { PerfilViewModel(get(), get(), get()) }
     factory { (groupId: String) -> AnimalGroupDetailViewModel(groupId, get(), get()) }
     factory { (animalId: String) -> ManageAnimalGroupsViewModel(animalId, get(), get()) }
-    factory { (animalId: String) -> GestationResultViewModel(animalId, get(), get(), get()) }
-    factory { (animalId: String) -> EditGestationViewModel(animalId, get(), get()) }
+    factory { (animalId: String) -> GestationResultViewModel(animalId, get(), get(), get(), get()) }
+    factory { (animalId: String) -> EditGestationViewModel(animalId, get(), get(), get()) }
 }

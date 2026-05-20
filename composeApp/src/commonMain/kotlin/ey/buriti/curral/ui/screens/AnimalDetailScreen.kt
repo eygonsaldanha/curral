@@ -86,6 +86,7 @@ fun AnimalDetailScreen(
     val groups by vm.groups.collectAsState()
     val weightHistory by vm.weightHistory.collectAsState()
     val currentAnimal = animal
+    val currentGestation = gestation
 
     if (currentAnimal == null) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -112,10 +113,10 @@ fun AnimalDetailScreen(
         ) {
             item { ProfileHeaderCard(animal = currentAnimal) }
             item { InfoGridCard(animal = currentAnimal) }
-            if (gestation != null) {
+            if (currentGestation != null) {
                 item {
                     GestationCard(
-                        gestation = gestation,
+                        gestation = currentGestation,
                         father = father,
                         onRegisterResult = { onRegisterGestationResult(animalId) },
                         onEditGestation = { onEditGestation(animalId) },

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ey.buriti.curral.data.IAnimalRepository
 import ey.buriti.curral.data.IGestationRepository
+import ey.buriti.curral.sync.SyncEngine
 import ey.buriti.curral.model.Animal
 import ey.buriti.curral.model.AnimalSex
 import ey.buriti.curral.model.Gestation
@@ -17,6 +18,7 @@ class EditGestationViewModel(
     private val animalId: String,
     private val animalRepo: IAnimalRepository,
     private val gestationRepo: IGestationRepository,
+    private val syncEngine: SyncEngine,
 ) : ViewModel() {
 
     val animal: StateFlow<Animal?> = animalRepo.getAnimalById(animalId)
@@ -31,5 +33,6 @@ class EditGestationViewModel(
 
     fun updateGestation(gestation: Gestation) = viewModelScope.launch {
         gestationRepo.updateGestation(gestation)
+        runCatching { syncEngine.sync() }
     }
 }

@@ -8,6 +8,7 @@ import ey.buriti.curral.data.IGestationRepository
 import ey.buriti.curral.data.IGroupRepository
 import ey.buriti.curral.data.IProducaoRepository
 import ey.buriti.curral.data.IStockRepository
+import ey.buriti.curral.sync.SyncEngine
 import ey.buriti.curral.model.Animal
 import ey.buriti.curral.model.AnimalEvent
 import ey.buriti.curral.model.AnimalGroup
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class HomeViewModel(
     animalRepo: IAnimalRepository,
@@ -26,6 +28,7 @@ class HomeViewModel(
     gestationRepo: IGestationRepository,
     producaoRepo: IProducaoRepository,
     stockRepo: IStockRepository,
+    private val syncEngine: SyncEngine,
 ) : ViewModel() {
 
     val animals: StateFlow<List<Animal>> = animalRepo.getAnimals()
@@ -45,4 +48,8 @@ class HomeViewModel(
 
     val lowStockItems: StateFlow<List<StockItem>> = stockRepo.getItems()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    init {
+        viewModelScope.launch { runCatching { syncEngine.sync() } }
+    }
 }

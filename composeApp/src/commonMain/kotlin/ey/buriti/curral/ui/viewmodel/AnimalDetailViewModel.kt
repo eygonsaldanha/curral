@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import ey.buriti.curral.data.IAnimalRepository
 import ey.buriti.curral.data.IEventRepository
 import ey.buriti.curral.data.IGestationRepository
+import ey.buriti.curral.sync.SyncEngine
 import ey.buriti.curral.model.Animal
 import ey.buriti.curral.model.AnimalEvent
 import ey.buriti.curral.model.AnimalGroup
@@ -21,6 +22,7 @@ class AnimalDetailViewModel(
     private val animalRepo: IAnimalRepository,
     private val eventRepo: IEventRepository,
     private val gestationRepo: IGestationRepository,
+    private val syncEngine: SyncEngine,
 ) : ViewModel() {
 
     val animal: StateFlow<Animal?> = animalRepo.getAnimalById(animalId)
@@ -44,14 +46,17 @@ class AnimalDetailViewModel(
 
     fun updateAnimal(animal: Animal) = viewModelScope.launch {
         animalRepo.updateAnimal(animal)
+        runCatching { syncEngine.sync() }
     }
 
     fun deleteAnimal() = viewModelScope.launch {
         animalRepo.deleteAnimal(animalId)
+        runCatching { syncEngine.sync() }
     }
 
     fun addEvent(event: AnimalEvent) = viewModelScope.launch {
         eventRepo.addEvent(event)
+        runCatching { syncEngine.sync() }
     }
 
     fun saveWeightRecord(weightKg: Double, date: String, notes: String) = viewModelScope.launch {
@@ -67,17 +72,21 @@ class AnimalDetailViewModel(
                 weightKg = weightKg,
             )
         )
+        runCatching { syncEngine.sync() }
     }
 
     fun deleteEvent(eventId: String) = viewModelScope.launch {
         eventRepo.deleteEvent(eventId)
+        runCatching { syncEngine.sync() }
     }
 
     fun addGestation(gestation: Gestation) = viewModelScope.launch {
         gestationRepo.addGestation(gestation)
+        runCatching { syncEngine.sync() }
     }
 
     fun deleteGestation(gestationId: String) = viewModelScope.launch {
         gestationRepo.deleteGestation(gestationId)
+        runCatching { syncEngine.sync() }
     }
 }

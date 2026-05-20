@@ -20,9 +20,8 @@ val apiModule = module {
     }
     single<IApiService> {
         KtorApiService(
-            client = get(),
-            baseUrl = API_BASE_URL,
             authRepository = get(),
+            baseUrl = API_BASE_URL,
         )
     }
 }

@@ -6,6 +6,7 @@ import ey.buriti.curral.data.GestationResultType
 import ey.buriti.curral.data.IAnimalRepository
 import ey.buriti.curral.data.IEventRepository
 import ey.buriti.curral.data.IGestationRepository
+import ey.buriti.curral.sync.SyncEngine
 import ey.buriti.curral.model.Animal
 import ey.buriti.curral.model.AnimalEvent
 import ey.buriti.curral.model.AnimalStatus
@@ -20,6 +21,7 @@ class GestationResultViewModel(
     private val animalRepo: IAnimalRepository,
     private val gestationRepo: IGestationRepository,
     private val eventRepo: IEventRepository,
+    private val syncEngine: SyncEngine,
 ) : ViewModel() {
 
     val animal: StateFlow<Animal?> = animalRepo.getAnimalById(animalId)
@@ -53,6 +55,7 @@ class GestationResultViewModel(
                 groupId = null,
             )
         )
+        runCatching { syncEngine.sync() }
         onDone()
     }
 }

@@ -6,6 +6,7 @@ import ey.buriti.curral.data.IAnimalRepository
 import ey.buriti.curral.data.IEventRepository
 import ey.buriti.curral.data.IGestationRepository
 import ey.buriti.curral.data.IGroupRepository
+import ey.buriti.curral.sync.SyncEngine
 import ey.buriti.curral.model.Animal
 import ey.buriti.curral.model.AnimalEvent
 import ey.buriti.curral.model.AnimalGroup
@@ -23,6 +24,7 @@ class AnimaisViewModel(
     private val groupRepo: IGroupRepository,
     private val eventRepo: IEventRepository,
     private val gestationRepo: IGestationRepository,
+    private val syncEngine: SyncEngine,
 ) : ViewModel() {
 
     val animals: StateFlow<List<Animal>> = animalRepo.getAnimals()
@@ -43,6 +45,7 @@ class AnimaisViewModel(
                 birthDate = birthDate, weightKg = weightKg,
             )
         )
+        runCatching { syncEngine.sync() }
     }
 
     fun addAnimalFromForm(
@@ -75,29 +78,36 @@ class AnimaisViewModel(
             )
         )
         onCreated(id)
+        runCatching { syncEngine.sync() }
     }
 
     fun updateAnimal(animal: Animal) = viewModelScope.launch {
         animalRepo.updateAnimal(animal)
+        runCatching { syncEngine.sync() }
     }
 
     fun deleteAnimal(id: String) = viewModelScope.launch {
         animalRepo.deleteAnimal(id)
+        runCatching { syncEngine.sync() }
     }
 
     fun addGroup(name: String, description: String) = viewModelScope.launch {
         groupRepo.addGroup(name, description)
+        runCatching { syncEngine.sync() }
     }
 
     fun updateGroup(group: AnimalGroup) = viewModelScope.launch {
         groupRepo.updateGroup(group)
+        runCatching { syncEngine.sync() }
     }
 
     fun addAnimalToGroup(animalId: String, groupId: String) = viewModelScope.launch {
         groupRepo.addAnimalToGroup(animalId, groupId)
+        runCatching { syncEngine.sync() }
     }
 
     fun removeAnimalFromGroup(animalId: String, groupId: String) = viewModelScope.launch {
         groupRepo.removeAnimalFromGroup(animalId, groupId)
+        runCatching { syncEngine.sync() }
     }
 }
