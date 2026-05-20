@@ -16,9 +16,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ey.buriti.curral.data.AnimalRepository
 import ey.buriti.curral.model.*
 import ey.buriti.curral.ui.theme.CurralColors
+import ey.buriti.curral.ui.viewmodel.AnimaisViewModel
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,6 +27,7 @@ fun NovoAnimalScreen(
     onBack: () -> Unit,
     onAnimalCreated: (String) -> Unit,
     modifier: Modifier = Modifier,
+    vm: AnimaisViewModel = koinViewModel(),
 ) {
     var name by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf<AnimalType?>(null) }
@@ -41,8 +43,9 @@ fun NovoAnimalScreen(
     var selectedMotherId by remember { mutableStateOf<String?>(null) }
     var selectedFatherId by remember { mutableStateOf<String?>(null) }
 
-    val femaleAnimals = AnimalRepository.animals.filter { it.sex == AnimalSex.FEMEA }
-    val maleAnimals = AnimalRepository.animals.filter { it.sex == AnimalSex.MACHO }
+    val allAnimals by vm.animals.collectAsState()
+    val femaleAnimals = allAnimals.filter { it.sex == AnimalSex.FEMEA }
+    val maleAnimals = allAnimals.filter { it.sex == AnimalSex.MACHO }
 
     val canSave = name.isNotBlank() && selectedType != null && selectedSex != null &&
             breed.isNotBlank() && tagNumber.isNotBlank()
@@ -272,24 +275,19 @@ fun NovoAnimalScreen(
                     onClick = {
                         val type = selectedType ?: return@Button
                         val sex = selectedSex ?: return@Button
-                        val newId = AnimalRepository.generateAnimalId()
                         val birth = parseBirthDate(birthDate)
-                        AnimalRepository.addAnimal(
-                            Animal(
-                                id = newId,
-                                name = name.trim(),
-                                type = type,
-                                breed = breed.trim(),
-                                status = selectedStatus,
-                                sex = sex,
-                                tagNumber = tagNumber.trim(),
-                                birthDate = birth,
-                                weightKg = weight.toDoubleOrNull() ?: 0.0,
-                                motherId = selectedMotherId,
-                                fatherId = selectedFatherId,
-                            )
-                        )
-                        onAnimalCreated(newId)
+                        vm.addAnimalFromForm(
+                            name = name.trim(),
+                            type = type,
+                            breed = breed.trim(),
+                            status = selectedStatus,
+                            sex = sex,
+                            tagNumber = tagNumber.trim(),
+                            birthDate = birth,
+                            weightKg = weight.toDoubleOrNull() ?: 0.0,
+                            motherId = selectedMotherId,
+                            fatherId = selectedFatherId,
+                        ) { newId -> onAnimalCreated(newId) }
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),

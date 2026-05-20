@@ -19,19 +19,17 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ey.buriti.curral.data.AnimalRepository
-import ey.buriti.curral.model.AnimalStatus
 import ey.buriti.curral.ui.theme.CurralColors
+import ey.buriti.curral.ui.viewmodel.PerfilViewModel
+import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun PerfilScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    vm: PerfilViewModel = koinViewModel(),
 ) {
-    val animals = AnimalRepository.animals
-    val totalAnimals = animals.size
-    val healthyAnimals = animals.count { it.status == AnimalStatus.SAUDAVEL }
-    val totalGroups = AnimalRepository.groups.size
+    val state by vm.uiState.collectAsState()
 
     Column(
         modifier = modifier
@@ -39,7 +37,6 @@ fun PerfilScreen(
             .background(CurralColors.Background)
             .verticalScroll(rememberScrollState()),
     ) {
-        // ── Top bar ──────────────────────────────────────────────────────────
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -61,7 +58,6 @@ fun PerfilScreen(
             )
         }
 
-        // ── Avatar + nome ─────────────────────────────────────────────────────
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -76,7 +72,7 @@ fun PerfilScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    "JS",
+                    state.initials,
                     color = Color.White,
                     fontSize = 34.sp,
                     fontWeight = FontWeight.Bold,
@@ -84,7 +80,7 @@ fun PerfilScreen(
             }
             Spacer(Modifier.height(14.dp))
             Text(
-                "João Silva",
+                state.email.ifBlank { "Fazendeiro" },
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = CurralColors.TextPrimary,
@@ -96,21 +92,19 @@ fun PerfilScreen(
             )
         }
 
-        // ── Estatísticas ──────────────────────────────────────────────────────
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            ProfileStatCard("$totalAnimals", "Animais", Modifier.weight(1f))
-            ProfileStatCard("$healthyAnimals", "Saudáveis", Modifier.weight(1f))
-            ProfileStatCard("$totalGroups", "Grupos", Modifier.weight(1f))
+            ProfileStatCard("${state.totalAnimals}", "Animais", Modifier.weight(1f))
+            ProfileStatCard("${state.healthyAnimals}", "Saudáveis", Modifier.weight(1f))
+            ProfileStatCard("${state.totalGroups}", "Grupos", Modifier.weight(1f))
         }
 
         Spacer(Modifier.height(28.dp))
 
-        // ── Opções ────────────────────────────────────────────────────────────
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -151,7 +145,6 @@ fun PerfilScreen(
 
         Spacer(Modifier.height(20.dp))
 
-        // ── Sair ──────────────────────────────────────────────────────────────
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -163,7 +156,7 @@ fun PerfilScreen(
                 icon = Icons.Default.ExitToApp,
                 iconColor = Color(0xFFEF4444),
                 label = "Sair da conta",
-                onClick = { /* TODO */ },
+                onClick = { vm.signOut() },
                 labelColor = Color(0xFFEF4444),
             )
         }

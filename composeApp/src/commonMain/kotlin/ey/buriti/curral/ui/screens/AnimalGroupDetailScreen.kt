@@ -19,8 +19,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -34,19 +32,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ey.buriti.curral.data.AnimalRepository
 import ey.buriti.curral.ui.theme.CurralColors
+import ey.buriti.curral.ui.viewmodel.AnimalGroupDetailViewModel
+import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,21 +53,24 @@ fun AnimalGroupDetailScreen(
     onOpenBatchEvent: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val group = AnimalRepository.getGroup(groupId)
+    val vm: AnimalGroupDetailViewModel = koinViewModel { parametersOf(groupId) }
+    val group by vm.group.collectAsState()
+    val animals by vm.animals.collectAsState()
+    val allAnimals by vm.allAnimals.collectAsState()
+    val availableAnimals = allAnimals.filter { animal -> animals.none { it.id == animal.id } }
+    val currentGroup = group
 
-    if (group == null) {
+    if (currentGroup == null) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Grupo não encontrado", color = CurralColors.TextSecondary)
         }
         return
     }
 
-    val animals = AnimalRepository.getAnimalsInGroup(groupId)
-    val availableAnimals = AnimalRepository.getAnimalsOutsideGroup(groupId)
     var showAddAnimalDialog by remember { mutableStateOf(false) }
 
     ScaffoldWithGroupFab(
-        groupName = group.name,
+        groupName = currentGroup.name,
         onBack = onBack,
         onBatchEvent = { onOpenBatchEvent(groupId) },
     ) { paddingValues ->
@@ -88,10 +87,10 @@ fun AnimalGroupDetailScreen(
                     colors = CardDefaults.elevatedCardColors(containerColor = CurralColors.Surface),
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text(group.name, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = CurralColors.TextPrimary)
-                        if (group.description.isNotBlank()) {
+                        Text(currentGroup.name, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = CurralColors.TextPrimary)
+                        if (currentGroup.description.isNotBlank()) {
                             Spacer(Modifier.height(4.dp))
-                            Text(group.description, fontSize = 12.sp, color = CurralColors.TextSecondary, maxLines = 1)
+                            Text(currentGroup.description, fontSize = 12.sp, color = CurralColors.TextSecondary, maxLines = 1)
                         }
                         Spacer(Modifier.height(10.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -137,7 +136,7 @@ fun AnimalGroupDetailScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.End,
                             ) {
-                                TextButton(onClick = { AnimalRepository.removeAnimalFromGroup(animal.id, groupId) }) {
+                                TextButton(onClick = { vm.removeAnimalFromGroup(animal.id) }) {
                                     Text("Remover do grupo")
                                 }
                             }
@@ -168,7 +167,7 @@ fun AnimalGroupDetailScreen(
                                 Text("${animal.type.emoji} ${animal.name}")
                                 TextButton(
                                     onClick = {
-                                        AnimalRepository.addAnimalToGroup(animal.id, groupId)
+                                        vm.addAnimalToGroup(animal.id)
                                         showAddAnimalDialog = false
                                     },
                                 ) {

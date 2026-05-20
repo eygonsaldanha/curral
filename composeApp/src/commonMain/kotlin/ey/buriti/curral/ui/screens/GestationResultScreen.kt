@@ -22,20 +22,18 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ey.buriti.curral.data.AnimalRepository
 import ey.buriti.curral.data.GestationResultType
 import ey.buriti.curral.platform.getCurrentDate
 import ey.buriti.curral.ui.theme.CurralColors
+import ey.buriti.curral.ui.viewmodel.GestationResultViewModel
+import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,7 +42,9 @@ fun GestationResultScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val animal = AnimalRepository.getAnimal(animalId) ?: return
+    val vm: GestationResultViewModel = koinViewModel { parametersOf(animalId) }
+    val animal by vm.animal.collectAsState()
+    val currentAnimal = animal ?: return
     val today = remember { getCurrentDate().toDisplayDateString() }
     var resultType by remember { mutableStateOf(GestationResultType.PARTO_CONCLUIDO) }
     var date by remember { mutableStateOf(today) }
@@ -75,7 +75,7 @@ fun GestationResultScreen(
         ) {
             Surface(shape = RoundedCornerShape(16.dp), color = Color.White) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Resultado da gestação de ${animal.name}", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = CurralColors.TextPrimary)
+                    Text("Resultado da gestação de ${currentAnimal.name}", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = CurralColors.TextPrimary)
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         GestationResultType.entries.forEach { option ->
                             val selected = option == resultType
@@ -108,8 +108,7 @@ fun GestationResultScreen(
                                 return@Button
                             }
                             dateError = null
-                            AnimalRepository.registerGestationResult(animalId, resultType, isoDate, notes)
-                            onBack()
+                            vm.registerResult(resultType, isoDate, notes) { onBack() }
                         },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = CurralColors.FabGreen),
