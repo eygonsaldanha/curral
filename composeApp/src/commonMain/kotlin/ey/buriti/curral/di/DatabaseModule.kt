@@ -1,11 +1,10 @@
 package ey.buriti.curral.di
 
 import ey.buriti.curral.db.CurralDatabase
-import ey.buriti.curral.db.buildDatabase
+import org.koin.core.module.Module
 import org.koin.dsl.module
 
-val databaseModule = module {
-    single<CurralDatabase> { buildDatabase(get()) }
+internal fun daoModule() = module {
     single { get<CurralDatabase>().animalDao() }
     single { get<CurralDatabase>().animalGroupDao() }
     single { get<CurralDatabase>().animalEventDao() }
@@ -13,3 +12,5 @@ val databaseModule = module {
     single { get<CurralDatabase>().producaoEntryDao() }
     single { get<CurralDatabase>().stockItemDao() }
 }
+
+expect val databaseModule: Module

@@ -20,6 +20,7 @@ material3 = "1.10.0-alpha05"
 kotlinx-datetime = "0.6.2"
 # Offline / sync stack
 room = "2.7.1"
+sqlite = "2.5.1"
 ksp = "2.3.8"
 workmanager = "2.10.1"
 koin = "4.0.4"
@@ -57,6 +58,7 @@ ktor-serverTestHost = { module = "io.ktor:ktor-server-test-host-jvm", version.re
 # Room KMP
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
 # WorkManager (Android)
 workmanager-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workmanager" }
 # Koin
