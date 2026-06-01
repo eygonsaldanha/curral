@@ -2,6 +2,23 @@ package ey.buriti.curral.db
 
 import org.jetbrains.exposed.sql.Table
 
+object Farms : Table("farms") {
+    val id = text("id")
+    val name = text("name")
+    val ownerUserId = text("owner_user_id")
+    val createdAt = text("created_at")
+    val updatedAt = text("updated_at")
+    override val primaryKey = PrimaryKey(id)
+}
+
+object UserFarms : Table("user_farms") {
+    val userId = text("user_id")
+    val farmId = text("farm_id")
+    val role = text("role")
+    val createdAt = text("created_at")
+    override val primaryKey = PrimaryKey(userId, farmId)
+}
+
 object Animals : Table("animals") {
     val id = text("id")
     val farmId = text("farm_id")

@@ -10,7 +10,7 @@ val syncModule = module {
         SyncEngine(
             db = get(),
             api = get(),
-            farmId = get<SessionManager>().farmId,
+            farmIdProvider = { get<SessionManager>().farmId },
         )
     }
     single { SyncScheduler(get()) }

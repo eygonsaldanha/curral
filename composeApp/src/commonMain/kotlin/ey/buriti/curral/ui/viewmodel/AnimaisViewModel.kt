@@ -13,6 +13,7 @@ import ey.buriti.curral.model.AnimalGroup
 import ey.buriti.curral.model.AnimalSex
 import ey.buriti.curral.model.AnimalStatus
 import ey.buriti.curral.model.AnimalType
+import ey.buriti.curral.model.EventType
 import ey.buriti.curral.model.Gestation
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -108,6 +109,29 @@ class AnimaisViewModel(
 
     fun removeAnimalFromGroup(animalId: String, groupId: String) = viewModelScope.launch {
         groupRepo.removeAnimalFromGroup(animalId, groupId)
+        runCatching { syncEngine.sync() }
+    }
+
+    fun addEvent(
+        type: EventType,
+        date: String,
+        time: String,
+        notes: String,
+        animalId: String,
+        groupId: String? = null,
+    ) = viewModelScope.launch {
+        val id = eventRepo.generateEventId()
+        eventRepo.addEvent(
+            AnimalEvent(
+                id = id,
+                animalId = animalId,
+                type = type,
+                date = date,
+                time = time,
+                notes = notes,
+                groupId = groupId,
+            )
+        )
         runCatching { syncEngine.sync() }
     }
 }

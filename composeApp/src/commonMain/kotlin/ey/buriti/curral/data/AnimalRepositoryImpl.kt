@@ -14,7 +14,7 @@ import kotlinx.serialization.json.Json
 
 class AnimalRepositoryImpl(
     private val db: CurralDatabase,
-    private val farmId: String,
+    private val farmIdProvider: () -> String,
 ) : IAnimalRepository {
 
     private val animalDao get() = db.animalDao()
@@ -22,18 +22,20 @@ class AnimalRepositoryImpl(
     private val eventDao get() = db.animalEventDao()
     private val gestationDao get() = db.gestationDao()
 
+    private fun farmId(): String = farmIdProvider()
+
     override fun getAnimals(): Flow<List<Animal>> =
-        animalDao.getAll(farmId).map { list -> list.map { it.toDomain() } }
+        animalDao.getAll(farmId()).map { list -> list.map { it.toDomain() } }
 
     override fun getAnimalById(id: String): Flow<Animal?> =
         animalDao.getById(id).map { it?.toDomain() }
 
     override suspend fun addAnimal(animal: Animal) {
-        animalDao.upsert(animal.toEntity(farmId))
+        animalDao.upsert(animal.toEntity(farmId()))
     }
 
     override suspend fun updateAnimal(animal: Animal) {
-        animalDao.upsert(animal.toEntity(farmId))
+        animalDao.upsert(animal.toEntity(farmId()))
     }
 
     override suspend fun deleteAnimal(id: String) {
@@ -41,7 +43,7 @@ class AnimalRepositoryImpl(
     }
 
     override fun getGroupsForAnimal(animalId: String): Flow<List<AnimalGroup>> =
-        groupDao.getAll(farmId).map { groups ->
+        groupDao.getAll(farmId()).map { groups ->
             groups.filter { group ->
                 val ids = Json.decodeFromString<List<String>>(group.animalIdsJson)
                 animalId in ids
@@ -49,7 +51,7 @@ class AnimalRepositoryImpl(
         }
 
     override fun getEventsForAnimal(animalId: String): Flow<List<AnimalEvent>> =
-        eventDao.getByAnimal(animalId, farmId).map { list -> list.map { it.toDomain() } }
+        eventDao.getByAnimal(animalId, farmId()).map { list -> list.map { it.toDomain() } }
 
     override fun getGestationForAnimal(animalId: String): Flow<Gestation?> =
         gestationDao.getByAnimal(animalId).map { it?.toDomain() }

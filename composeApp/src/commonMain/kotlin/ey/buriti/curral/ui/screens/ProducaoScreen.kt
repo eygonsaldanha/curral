@@ -15,36 +15,34 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ey.buriti.curral.model.ProducaoEntry
+import ey.buriti.curral.model.ProductType
 import ey.buriti.curral.ui.theme.CurralColors
 import ey.buriti.curral.ui.viewmodel.ProducaoViewModel
+import kotlin.math.abs
+import kotlin.math.round
 import org.koin.compose.viewmodel.koinViewModel
 
 // ─── Data ──────────────────────────────────────────────────────────────────────
 
-private data class ProducaoItem(
-    val title: String,
-    val subtitle: String,
-    val iconEmoji: String,
-    val iconBg: Color,
-    val value: String,
+private data class ProductMetrics(
+    val total: Double,
     val unit: String,
-    val trend: String,
+    val trendPercent: Double,
     val trendUp: Boolean,
-    val barValues: List<Float>,
-    val barColor: Color,
+    val bars: List<Float>,
+    val labels: List<String>,
+    val entryCount: Int,
 )
 
-private val LeiteDayBars = listOf(220f, 235f, 245f, 210f, 250f, 195f, 180f)
-private val LeiteDayLabels = listOf("Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom")
-private val LeiteDayValueLabels = listOf("220L", "235L", "245L", "210L", "250L", "195L", "180L")
-private val GreyDays = setOf(5, 6) // Sáb, Dom (future)
-
-private val OvosBars = listOf(160f, 180f, 175f, 190f, 170f, 185f, 165f, 180f, 175f, 170f, 185f, 180f, 175f, 185f)
-private val MelBars = listOf(40f, 45f, 48f, 42f, 50f, 47f, 44f, 46f, 52f, 49f, 45f, 48f, 46f, 50f)
-private val CapimBars = listOf(80f, 90f, 85f, 95f, 88f, 92f, 86f, 91f, 87f, 89f, 94f, 88f, 90f, 85f)
+private data class ProducaoResumo(
+    val totalEntries: Int,
+    val activeTypes: Int,
+    val lastEntryDateLabel: String,
+)
 
 private val BarGreen = Color(0xFF2E7D32)
-private val BarGreenLight = Color(0xFFB0BEC5)
+private val BarBlue = Color(0xFF1565C0)
 private val BarOrange = Color(0xFFF57C00)
 private val BarYellow = Color(0xFFFFC107)
 private val TrendGreen = Color(0xFF2E7D32)
@@ -56,6 +54,11 @@ fun ProducaoScreen(
     vm: ProducaoViewModel = koinViewModel(),
 ) {
     val entries by vm.entries.collectAsState()
+    val leiteMetrics = remember(entries) { buildProductMetrics(entries, ProductType.LEITE, window = 7) }
+    val ovosMetrics = remember(entries) { buildProductMetrics(entries, ProductType.OVOS, window = 14) }
+    val melMetrics = remember(entries) { buildProductMetrics(entries, ProductType.MEL, window = 14) }
+    val capimMetrics = remember(entries) { buildProductMetrics(entries, ProductType.CAPIM_FENO, window = 14) }
+    val resumo = remember(entries) { buildResumo(entries) }
 
     LazyColumn(
         modifier = modifier
@@ -82,7 +85,7 @@ fun ProducaoScreen(
         }
 
         // ── Produção de Leite (large card) ─────────────────────────────────────
-        item { LeiteCard() }
+        item { LeiteCard(leiteMetrics) }
 
         // ── Ovos + Mel (two small cards) ───────────────────────────────────────
         item {
@@ -94,11 +97,11 @@ fun ProducaoScreen(
                     title = "Ovos",
                     iconEmoji = "🥚",
                     iconBg = CurralColors.StatOrangeBg,
-                    value = "1,260",
-                    unit = "unidades",
-                    trend = "-2.1%",
-                    trendUp = false,
-                    bars = OvosBars,
+                    value = formatAmount(ovosMetrics.total),
+                    unit = ovosMetrics.unit,
+                    trend = formatPercent(ovosMetrics.trendPercent),
+                    trendUp = ovosMetrics.trendUp,
+                    bars = ovosMetrics.bars,
                     barColor = BarOrange,
                     modifier = Modifier.weight(1f),
                 )
@@ -106,11 +109,11 @@ fun ProducaoScreen(
                     title = "Mel",
                     iconEmoji = "🍯",
                     iconBg = CurralColors.StatYellowBg,
-                    value = "45",
-                    unit = "kg",
-                    trend = "+12.5%",
-                    trendUp = true,
-                    bars = MelBars,
+                    value = formatAmount(melMetrics.total),
+                    unit = melMetrics.unit,
+                    trend = formatPercent(melMetrics.trendPercent),
+                    trendUp = melMetrics.trendUp,
+                    bars = melMetrics.bars,
                     barColor = BarYellow,
                     modifier = Modifier.weight(1f),
                 )
@@ -123,17 +126,17 @@ fun ProducaoScreen(
                 title = "Capim/Feno",
                 iconEmoji = "🌿",
                 iconBg = CurralColors.StatusHealthyBg,
-                value = "850",
-                unit = "kg",
-                trend = "+5%",
-                trendUp = true,
-                bars = CapimBars,
+                value = formatAmount(capimMetrics.total),
+                unit = capimMetrics.unit,
+                trend = formatPercent(capimMetrics.trendPercent),
+                trendUp = capimMetrics.trendUp,
+                bars = capimMetrics.bars,
                 barColor = BarGreen,
             )
         }
 
-        // ── Consumo de Água (compact horizontal card) ──────────────────────────
-        item { AguaCard() }
+        // ── Resumo (compact horizontal card) ───────────────────────────────────
+        item { ResumoCard(resumo = resumo) }
 
         item { Spacer(Modifier.height(8.dp)) }
     }
@@ -142,7 +145,7 @@ fun ProducaoScreen(
 // ─── Leite Card ────────────────────────────────────────────────────────────────
 
 @Composable
-private fun LeiteCard() {
+private fun LeiteCard(metrics: ProductMetrics) {
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = CurralColors.Surface,
@@ -157,22 +160,31 @@ private fun LeiteCard() {
                 Spacer(Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Produção de Leite", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = CurralColors.TextPrimary)
-                    Text("Esta semana", fontSize = 12.sp, color = CurralColors.TextSecondary)
+                    Text(
+                        if (metrics.entryCount == 0) "Sem registros" else "Últimos ${metrics.bars.size} dias com registro",
+                        fontSize = 12.sp,
+                        color = CurralColors.TextSecondary,
+                    )
                 }
-                TrendBadge(trend = "+5.2%", up = true)
+                TrendBadge(trend = formatPercent(metrics.trendPercent), up = metrics.trendUp)
             }
 
             Spacer(Modifier.height(14.dp))
             Row(verticalAlignment = Alignment.Bottom) {
-                Text("1,535", fontSize = 36.sp, fontWeight = FontWeight.Bold, color = CurralColors.TextPrimary)
+                Text(
+                    formatAmount(metrics.total),
+                    fontSize = 36.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = CurralColors.TextPrimary,
+                )
                 Spacer(Modifier.width(6.dp))
-                Text("litros", fontSize = 16.sp, color = CurralColors.TextSecondary, modifier = Modifier.padding(bottom = 5.dp))
+                Text(metrics.unit, fontSize = 16.sp, color = CurralColors.TextSecondary, modifier = Modifier.padding(bottom = 5.dp))
             }
 
             Spacer(Modifier.height(12.dp))
 
             // Bar chart
-            val maxVal = LeiteDayBars.max()
+            val maxVal = (metrics.bars.maxOrNull() ?: 0f).takeIf { it > 0f } ?: 1f
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -180,9 +192,8 @@ private fun LeiteCard() {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Bottom,
             ) {
-                LeiteDayBars.forEachIndexed { idx, value ->
+                metrics.bars.forEachIndexed { idx, value ->
                     val fraction = value / maxVal
-                    val isGrey = idx in GreyDays
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Bottom,
@@ -191,9 +202,9 @@ private fun LeiteCard() {
                             .fillMaxHeight(),
                     ) {
                         Text(
-                            LeiteDayValueLabels[idx],
+                            "${formatAmount(value.toDouble())}${metrics.unit}",
                             fontSize = 9.sp,
-                            color = if (isGrey) CurralColors.TextSecondary else CurralColors.TextSecondary,
+                            color = CurralColors.TextSecondary,
                         )
                         Spacer(Modifier.height(2.dp))
                         Box(
@@ -201,10 +212,10 @@ private fun LeiteCard() {
                                 .fillMaxWidth(0.75f)
                                 .fillMaxHeight(fraction)
                                 .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                .background(if (isGrey) BarGreenLight else BarGreen),
+                                .background(BarBlue),
                         )
                         Spacer(Modifier.height(4.dp))
-                        Text(LeiteDayLabels[idx], fontSize = 10.sp, color = CurralColors.TextSecondary)
+                        Text(metrics.labels.getOrElse(idx) { "--" }, fontSize = 10.sp, color = CurralColors.TextSecondary)
                     }
                 }
             }
@@ -299,10 +310,10 @@ private fun MediumBarCard(
     }
 }
 
-// ─── Água Card ─────────────────────────────────────────────────────────────────
+// ─── Resumo Card ───────────────────────────────────────────────────────────────
 
 @Composable
-private fun AguaCard() {
+private fun ResumoCard(resumo: ProducaoResumo) {
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = CurralColors.Surface,
@@ -312,15 +323,20 @@ private fun AguaCard() {
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            EmojiIconBox(emoji = "💧", bg = CurralColors.StatBlueBg)
+            EmojiIconBox(emoji = "📈", bg = CurralColors.StatBlueBg)
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text("Consumo de Água", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = CurralColors.TextPrimary)
-                Text("Esta semana", fontSize = 12.sp, color = CurralColors.TextSecondary)
+                Text("Resumo da Produção", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = CurralColors.TextPrimary)
+                Text("${resumo.activeTypes} tipos com registro", fontSize = 12.sp, color = CurralColors.TextSecondary)
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text("3,200", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = CurralColors.TextPrimary)
-                Text("litros", fontSize = 12.sp, color = CurralColors.TextSecondary, textAlign = TextAlign.End)
+                Text(
+                    resumo.totalEntries.toString(),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = CurralColors.TextPrimary,
+                )
+                Text(resumo.lastEntryDateLabel, fontSize = 12.sp, color = CurralColors.TextSecondary, textAlign = TextAlign.End)
             }
         }
     }
@@ -330,7 +346,7 @@ private fun AguaCard() {
 
 @Composable
 private fun MiniBarChart(bars: List<Float>, barColor: Color, height: Dp) {
-    val maxVal = bars.max()
+    val maxVal = (bars.maxOrNull() ?: 0f).takeIf { it > 0f } ?: 1f
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -339,7 +355,7 @@ private fun MiniBarChart(bars: List<Float>, barColor: Color, height: Dp) {
         verticalAlignment = Alignment.Bottom,
     ) {
         bars.forEach { value ->
-            val fraction = value / maxVal
+            val fraction = (value / maxVal).coerceIn(0f, 1f)
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -382,4 +398,83 @@ private fun EmojiIconBox(
     ) {
         Text(emoji, fontSize = fontSize.sp)
     }
+}
+
+private fun buildProductMetrics(
+    entries: List<ProducaoEntry>,
+    type: ProductType,
+    window: Int,
+): ProductMetrics {
+    val typeEntries = entries.filter { it.productType == type }
+    if (typeEntries.isEmpty()) {
+        return ProductMetrics(
+            total = 0.0,
+            unit = defaultUnit(type),
+            trendPercent = 0.0,
+            trendUp = true,
+            bars = List(window) { 0f },
+            labels = List(window) { "--" },
+            entryCount = 0,
+        )
+    }
+
+    val byDate = linkedMapOf<String, Double>()
+    typeEntries.sortedBy { it.date }.forEach { entry ->
+        byDate[entry.date] = (byDate[entry.date] ?: 0.0) + entry.quantity
+    }
+
+    val dates = byDate.keys.toList()
+    val recentDates = dates.takeLast(window)
+    val previousDates = dates.dropLast(recentDates.size).takeLast(recentDates.size)
+
+    val recentTotal = recentDates.sumOf { byDate[it] ?: 0.0 }
+    val previousTotal = previousDates.sumOf { byDate[it] ?: 0.0 }
+    val deltaPercent = when {
+        previousTotal > 0 -> ((recentTotal - previousTotal) / previousTotal) * 100.0
+        recentTotal > 0 -> 100.0
+        else -> 0.0
+    }
+
+    val unit = typeEntries.lastOrNull()?.unit?.ifBlank { defaultUnit(type) } ?: defaultUnit(type)
+
+    val bars = recentDates.map { (byDate[it] ?: 0.0).toFloat() }
+    val labels = recentDates.map(::shortDateLabel)
+
+    return ProductMetrics(
+        total = recentTotal,
+        unit = unit,
+        trendPercent = abs(deltaPercent),
+        trendUp = deltaPercent >= 0,
+        bars = bars.ifEmpty { List(window) { 0f } },
+        labels = labels.ifEmpty { List(window) { "--" } },
+        entryCount = typeEntries.size,
+    )
+}
+
+private fun buildResumo(entries: List<ProducaoEntry>): ProducaoResumo {
+    val lastDate = entries.maxByOrNull { it.date }?.date
+    return ProducaoResumo(
+        totalEntries = entries.size,
+        activeTypes = entries.map { it.productType }.toSet().size,
+        lastEntryDateLabel = if (lastDate == null) "Sem registros" else "Último: ${formatDate(lastDate).take(5)}",
+    )
+}
+
+private fun shortDateLabel(isoDate: String): String = formatDate(isoDate).take(5)
+
+private fun defaultUnit(type: ProductType): String = when (type) {
+    ProductType.LEITE -> "L"
+    ProductType.OVOS -> "und"
+    ProductType.MEL -> "kg"
+    ProductType.CAPIM_FENO -> "kg"
+}
+
+private fun formatAmount(value: Double): String {
+    val rounded = round(value * 10.0) / 10.0
+    return if (rounded % 1.0 == 0.0) rounded.toInt().toString() else rounded.toString()
+}
+
+private fun formatPercent(value: Double): String {
+    val rounded = round(value * 10.0) / 10.0
+    return if (rounded % 1.0 == 0.0) "${rounded.toInt()}%" else "${rounded}%"
 }

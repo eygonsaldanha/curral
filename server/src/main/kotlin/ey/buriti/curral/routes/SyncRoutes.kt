@@ -15,7 +15,7 @@ fun Route.syncRoutes() {
      * POST /api/sync/push — recebe pendências do mobile, persiste e retorna versões atualizadas
      */
     post("/api/sync/push") {
-        val farmId = call.farmId()
+        val farmId = call.requireFarmIdOrRespond() ?: return@post
         val payload = call.receive<SyncPushPayload>()
         val now = nowIso()
 
@@ -155,7 +155,7 @@ fun Route.syncRoutes() {
      * GET /api/sync/pull?since=<ISO-8601> — retorna todas as entidades atualizadas desde `since`
      */
     get("/api/sync/pull") {
-        val farmId = call.farmId()
+        val farmId = call.requireFarmIdOrRespond() ?: return@get
         val since = call.request.queryParameters["since"] ?: "1970-01-01T00:00:00Z"
 
         val response = transaction {

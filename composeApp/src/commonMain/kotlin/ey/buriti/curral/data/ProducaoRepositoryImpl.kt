@@ -10,16 +10,18 @@ import kotlinx.coroutines.flow.map
 
 class ProducaoRepositoryImpl(
     private val db: CurralDatabase,
-    private val farmId: String,
+    private val farmIdProvider: () -> String,
 ) : IProducaoRepository {
 
     private val dao get() = db.producaoEntryDao()
 
+    private fun farmId(): String = farmIdProvider()
+
     override fun getEntries(): Flow<List<ProducaoEntry>> =
-        dao.getAll(farmId).map { list -> list.map { it.toDomain() } }
+        dao.getAll(farmId()).map { list -> list.map { it.toDomain() } }
 
     override suspend fun addEntry(entry: ProducaoEntry) {
-        dao.upsert(entry.toEntity(farmId))
+        dao.upsert(entry.toEntity(farmId()))
     }
 
     override suspend fun deleteEntry(id: String) {

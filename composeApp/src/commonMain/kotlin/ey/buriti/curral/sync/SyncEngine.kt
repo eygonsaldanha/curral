@@ -19,7 +19,7 @@ import kotlinx.coroutines.withContext
 class SyncEngine(
     private val db: CurralDatabase,
     private val api: IApiService,
-    private val farmId: String,
+    private val farmIdProvider: () -> String,
 ) {
     private val animalDao get() = db.animalDao()
     private val groupDao get() = db.animalGroupDao()
@@ -45,6 +45,7 @@ class SyncEngine(
     }
 
     private suspend fun push() {
+        val farmId = farmIdProvider()
         val pendingAnimals = animalDao.getPending(farmId).map { entity ->
             val d = entity.toDomain()
             AnimalDto(

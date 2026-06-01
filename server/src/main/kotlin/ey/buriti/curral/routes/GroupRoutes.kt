@@ -14,7 +14,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 fun Route.groupRoutes() {
     route("/api/groups") {
         get {
-            val farmId = call.farmId()
+            val farmId = call.requireFarmIdOrRespond() ?: return@get
             val since = call.request.queryParameters["since"] ?: "1970-01-01T00:00:00Z"
             val rows = transaction {
                 AnimalGroups.selectAll()
@@ -25,7 +25,7 @@ fun Route.groupRoutes() {
         }
 
         post {
-            val farmId = call.farmId()
+            val farmId = call.requireFarmIdOrRespond() ?: return@post
             val dto = call.receive<AnimalGroupDto>()
             val now = nowIso()
             transaction {
@@ -43,7 +43,7 @@ fun Route.groupRoutes() {
         }
 
         put("/{id}") {
-            val farmId = call.farmId()
+            val farmId = call.requireFarmIdOrRespond() ?: return@put
             val id = call.parameters["id"]!!
             val dto = call.receive<AnimalGroupDto>()
             val now = nowIso()
@@ -60,7 +60,7 @@ fun Route.groupRoutes() {
         }
 
         delete("/{id}") {
-            val farmId = call.farmId()
+            val farmId = call.requireFarmIdOrRespond() ?: return@delete
             val id = call.parameters["id"]!!
             val now = nowIso()
             transaction {

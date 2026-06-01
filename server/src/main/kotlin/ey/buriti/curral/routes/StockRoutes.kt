@@ -13,7 +13,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 fun Route.stockRoutes() {
     route("/api/stock") {
         get {
-            val farmId = call.farmId()
+            val farmId = call.requireFarmIdOrRespond() ?: return@get
             val since = call.request.queryParameters["since"] ?: "1970-01-01T00:00:00Z"
             call.respond(transaction {
                 StockItems.selectAll()
@@ -23,7 +23,7 @@ fun Route.stockRoutes() {
         }
 
         post {
-            val farmId = call.farmId()
+            val farmId = call.requireFarmIdOrRespond() ?: return@post
             val dto = call.receive<StockItemDto>()
             val now = nowIso()
             transaction {
@@ -44,7 +44,7 @@ fun Route.stockRoutes() {
         }
 
         put("/{id}") {
-            val farmId = call.farmId()
+            val farmId = call.requireFarmIdOrRespond() ?: return@put
             val id = call.parameters["id"]!!
             val dto = call.receive<StockItemDto>()
             val now = nowIso()
@@ -64,7 +64,7 @@ fun Route.stockRoutes() {
         }
 
         delete("/{id}") {
-            val farmId = call.farmId()
+            val farmId = call.requireFarmIdOrRespond() ?: return@delete
             val id = call.parameters["id"]!!
             val now = nowIso()
             transaction {

@@ -10,22 +10,24 @@ import kotlinx.coroutines.flow.map
 
 class EventRepositoryImpl(
     private val db: CurralDatabase,
-    private val farmId: String,
+    private val farmIdProvider: () -> String,
 ) : IEventRepository {
 
     private val eventDao get() = db.animalEventDao()
 
+    private fun farmId(): String = farmIdProvider()
+
     override fun getEventsForAnimal(animalId: String): Flow<List<AnimalEvent>> =
-        eventDao.getByAnimal(animalId, farmId).map { list -> list.map { it.toDomain() } }
+        eventDao.getByAnimal(animalId, farmId()).map { list -> list.map { it.toDomain() } }
 
     override fun getEventsForDay(date: String): Flow<List<AnimalEvent>> =
-        eventDao.getByDate(date, farmId).map { list -> list.map { it.toDomain() } }
+        eventDao.getByDate(date, farmId()).map { list -> list.map { it.toDomain() } }
 
     override fun getAllEvents(): Flow<List<AnimalEvent>> =
-        eventDao.getAll(farmId).map { list -> list.map { it.toDomain() } }
+        eventDao.getAll(farmId()).map { list -> list.map { it.toDomain() } }
 
     override suspend fun addEvent(event: AnimalEvent) {
-        eventDao.upsert(event.toEntity(farmId))
+        eventDao.upsert(event.toEntity(farmId()))
     }
 
     override suspend fun deleteEvent(id: String) {

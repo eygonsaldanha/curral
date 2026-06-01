@@ -25,3 +25,17 @@ data class SyncResponse(
     /** IDs que chegaram com versão em conflito (server-wins, mobile deve sobrescrever). */
     val conflicts: List<String> = emptyList(),
 )
+
+@Serializable
+data class FarmDto(
+    val id: String,
+    val name: String,
+    val ownerUserId: String,
+    val createdAt: String,
+    val updatedAt: String,
+)
+
+@Serializable
+data class CreateFarmRequest(
+    val name: String,
+)

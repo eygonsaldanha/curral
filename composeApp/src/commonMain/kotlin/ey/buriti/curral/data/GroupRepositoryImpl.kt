@@ -13,26 +13,28 @@ import kotlinx.serialization.json.Json
 
 class GroupRepositoryImpl(
     private val db: CurralDatabase,
-    private val farmId: String,
+    private val farmIdProvider: () -> String,
 ) : IGroupRepository {
 
     private val groupDao get() = db.animalGroupDao()
     private val animalDao get() = db.animalDao()
 
+    private fun farmId(): String = farmIdProvider()
+
     override fun getGroups(): Flow<List<AnimalGroup>> =
-        groupDao.getAll(farmId).map { list -> list.map { it.toDomain() } }
+        groupDao.getAll(farmId()).map { list -> list.map { it.toDomain() } }
 
     override fun getGroupById(id: String): Flow<AnimalGroup?> =
         groupDao.getById(id).map { it?.toDomain() }
 
     override fun getGroupsForAnimal(animalId: String): Flow<List<AnimalGroup>> =
-        groupDao.getAll(farmId).map { groups ->
+        groupDao.getAll(farmId()).map { groups ->
             groups.filter { animalId in Json.decodeFromString<List<String>>(it.animalIdsJson) }
                 .map { it.toDomain() }
         }
 
     override fun getAnimalsInGroup(groupId: String): Flow<List<Animal>> =
-        animalDao.getAll(farmId).map { animals ->
+        animalDao.getAll(farmId()).map { animals ->
             val group = groupDao.getById(groupId).first() ?: return@map emptyList()
             val ids = Json.decodeFromString<List<String>>(group.animalIdsJson).toSet()
             animals.filter { it.id in ids }.map { it.toDomain() }
@@ -44,12 +46,12 @@ class GroupRepositoryImpl(
             name = name.trim(),
             description = description.trim(),
         )
-        groupDao.upsert(group.toEntity(farmId))
+        groupDao.upsert(group.toEntity(farmId()))
         return group
     }
 
     override suspend fun updateGroup(group: AnimalGroup) {
-        groupDao.upsert(group.toEntity(farmId))
+        groupDao.upsert(group.toEntity(farmId()))
     }
 
     override suspend fun deleteGroup(id: String) {

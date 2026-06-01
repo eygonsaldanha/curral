@@ -18,11 +18,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ey.buriti.curral.data.AnimalRepository
-import ey.buriti.curral.data.ProducaoRepository
-import ey.buriti.curral.data.StockRepository
+import ey.buriti.curral.platform.getCurrentDate
 import ey.buriti.curral.model.*
 import ey.buriti.curral.ui.theme.CurralColors
+import ey.buriti.curral.ui.viewmodel.AnimaisViewModel
+import ey.buriti.curral.ui.viewmodel.EstoqueViewModel
+import ey.buriti.curral.ui.viewmodel.ProducaoViewModel
+import org.koin.compose.viewmodel.koinViewModel
 
 enum class QuickAddPage { MENU, ANIMAL, PRODUCAO, EVENTO, ESTOQUE }
 
@@ -192,21 +194,28 @@ private fun <T> SelectChips(
     }
 }
 
-private fun dateToIso(dd_mm_yyyy: String): String {
+private fun dateToIsoOrNull(dd_mm_yyyy: String): String? {
     val p = dd_mm_yyyy.trim().split("/")
-    return if (p.size == 3) "${p[2]}-${p[1]}-${p[0]}" else dd_mm_yyyy
+    if (p.size != 3) return null
+    val day = p[0].toIntOrNull() ?: return null
+    val month = p[1].toIntOrNull() ?: return null
+    val year = p[2].toIntOrNull() ?: return null
+    if (day !in 1..31 || month !in 1..12 || year < 1900) return null
+    return "${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}"
 }
 
 // ─── Produção Form ─────────────────────────────────────────────────────────────
 
 @Composable
 private fun ProducaoFormContent(onBack: () -> Unit, onSave: () -> Unit) {
+    val vm: ProducaoViewModel = koinViewModel()
     var productType by remember { mutableStateOf<ProductType?>(null) }
     var quantity by remember { mutableStateOf("") }
     var unit by remember { mutableStateOf("kg") }
-    var date by remember { mutableStateOf("07/05/2026") }
+    var date by remember { mutableStateOf(getCurrentDate().toDisplayDateString()) }
     var notes by remember { mutableStateOf("") }
     var photoLabel by remember { mutableStateOf<String?>(null) }
+    var dateError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(productType) {
         unit = when (productType) {
@@ -303,6 +312,10 @@ private fun ProducaoFormContent(onBack: () -> Unit, onSave: () -> Unit) {
             )
         }
 
+        dateError?.let {
+            Text(it, fontSize = 12.sp, color = Color.Red)
+        }
+
         FormField("Foto (opcional)") {
             PhotoAttachmentField(selectedPhotoLabel = photoLabel, onPhotoSelected = { photoLabel = it })
         }
@@ -321,15 +334,18 @@ private fun ProducaoFormContent(onBack: () -> Unit, onSave: () -> Unit) {
             onClick = {
                 val pt = productType ?: return@Button
                 val qty = quantity.toDoubleOrNull() ?: return@Button
-                ProducaoRepository.addEntry(
-                    ProducaoEntry(
-                        id = ProducaoRepository.generateId(),
-                        productType = pt,
-                        quantity = qty,
-                        unit = unit,
-                        date = dateToIso(date),
-                        notes = notes,
-                    )
+                val isoDate = dateToIsoOrNull(date)
+                if (isoDate == null) {
+                    dateError = "Use o formato DD/MM/AAAA na data."
+                    return@Button
+                }
+                dateError = null
+                vm.addEntry(
+                    productType = pt,
+                    quantity = qty,
+                    unit = unit,
+                    date = isoDate,
+                    notes = notes,
                 )
                 onSave()
             },
@@ -360,9 +376,13 @@ private fun EventoFormContent(
     preselectedAnimalId: String? = null,
     preselectedGroupId: String? = null,
 ) {
+    val vm: AnimaisViewModel = koinViewModel()
+    val animals by vm.animals.collectAsState()
+    val groups by vm.groups.collectAsState()
+
     var title by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf<EventType?>(null) }
-    var date by remember { mutableStateOf("07/05/2026") }
+    var date by remember { mutableStateOf(getCurrentDate().toDisplayDateString()) }
     var time by remember { mutableStateOf("") }
     var assignToAnimal by remember(preselectedAnimalId, preselectedGroupId) {
         mutableStateOf(preselectedAnimalId != null || preselectedGroupId == null)
@@ -371,12 +391,10 @@ private fun EventoFormContent(
     var selectedGroupId by remember(preselectedGroupId) { mutableStateOf(preselectedGroupId) }
     var description by remember { mutableStateOf("") }
     var photoLabel by remember { mutableStateOf<String?>(null) }
+    var formError by remember { mutableStateOf<String?>(null) }
 
     var animalDropdownExpanded by remember { mutableStateOf(false) }
     var groupDropdownExpanded by remember { mutableStateOf(false) }
-
-    val animals = AnimalRepository.animals
-    val groups = AnimalRepository.groups
 
     Column(
         modifier = Modifier
@@ -562,21 +580,40 @@ private fun EventoFormContent(
             PhotoAttachmentField(selectedPhotoLabel = photoLabel, onPhotoSelected = { photoLabel = it })
         }
 
+        formError?.let {
+            Text(it, fontSize = 12.sp, color = Color.Red)
+        }
+
         Button(
             onClick = {
                 val type = selectedType ?: return@Button
-                val animalId = if (assignToAnimal) (selectedAnimalId ?: return@Button) else ""
+                val isoDate = dateToIsoOrNull(date)
+                if (isoDate == null) {
+                    formError = "Use o formato DD/MM/AAAA na data."
+                    return@Button
+                }
+
                 val groupId = if (!assignToAnimal) selectedGroupId else null
-                AnimalRepository.addEvent(
-                    AnimalEvent(
-                        id = AnimalRepository.generateEventId(),
-                        animalId = animalId,
-                        type = type,
-                        date = dateToIso(date),
-                        time = time,
-                        notes = formatEventNotes(title, description),
-                        groupId = groupId,
-                    )
+                val animalId = if (assignToAnimal) {
+                    selectedAnimalId ?: return@Button
+                } else {
+                    val selectedGroup = groups.firstOrNull { it.id == groupId }
+                    val fallbackAnimalId = selectedGroup?.animalIds?.firstOrNull()
+                    if (fallbackAnimalId == null) {
+                        formError = "O grupo selecionado não possui animais vinculados."
+                        return@Button
+                    }
+                    fallbackAnimalId
+                }
+
+                formError = null
+                vm.addEvent(
+                    type = type,
+                    date = isoDate,
+                    time = time,
+                    notes = formatEventNotes(title, description),
+                    animalId = animalId,
+                    groupId = groupId,
                 )
                 onSave()
             },
@@ -601,12 +638,15 @@ private fun formatEventNotes(title: String, description: String): String {
 
 @Composable
 private fun EstoqueFormContent(onBack: () -> Unit, onSave: () -> Unit) {
+    val vm: EstoqueViewModel = koinViewModel()
     var selectedCategory by remember { mutableStateOf<StockCategory?>(null) }
     var name by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("") }
     var unit by remember { mutableStateOf("") }
     var expiryDate by remember { mutableStateOf("") }
+    var lowStockThreshold by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
+    var formError by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
@@ -696,6 +736,17 @@ private fun EstoqueFormContent(onBack: () -> Unit, onSave: () -> Unit) {
             }
         }
 
+        FormField("Nível mínimo (opcional)") {
+            OutlinedTextField(
+                value = lowStockThreshold,
+                onValueChange = { lowStockThreshold = it.filter { c -> c.isDigit() } },
+                modifier = Modifier.width(140.dp),
+                shape = RoundedCornerShape(10.dp),
+                placeholder = { Text("Ex: 10") },
+                singleLine = true,
+            )
+        }
+
         FormField("Data de Vencimento (opcional)") {
             OutlinedTextField(
                 value = expiryDate,
@@ -718,19 +769,27 @@ private fun EstoqueFormContent(onBack: () -> Unit, onSave: () -> Unit) {
             )
         }
 
+        formError?.let {
+            Text(it, fontSize = 12.sp, color = Color.Red)
+        }
+
         Button(
             onClick = {
                 val cat = selectedCategory ?: return@Button
                 val qty = quantity.toIntOrNull() ?: return@Button
-                StockRepository.addItem(
-                    StockItem(
-                        id = StockRepository.generateId(),
-                        name = name,
-                        category = cat,
-                        quantity = qty,
-                        unit = unit.ifBlank { "un" },
-                        expiryDate = if (expiryDate.isBlank()) null else dateToIso(expiryDate),
-                    )
+                val expiryIso = if (expiryDate.isBlank()) null else dateToIsoOrNull(expiryDate)
+                if (expiryDate.isNotBlank() && expiryIso == null) {
+                    formError = "Use o formato DD/MM/AAAA na data de vencimento."
+                    return@Button
+                }
+                formError = null
+                vm.addItem(
+                    name = name.trim(),
+                    category = cat,
+                    quantity = qty,
+                    unit = unit.ifBlank { "un" },
+                    expiryDate = expiryIso,
+                    lowStockThreshold = lowStockThreshold.toIntOrNull() ?: 0,
                 )
                 onSave()
             },

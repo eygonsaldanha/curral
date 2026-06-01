@@ -4,6 +4,7 @@ import com.auth0.jwk.JwkProviderBuilder
 import ey.buriti.curral.db.DatabaseFactory
 import ey.buriti.curral.routes.animalRoutes
 import ey.buriti.curral.routes.eventRoutes
+import ey.buriti.curral.routes.farmRoutes
 import ey.buriti.curral.routes.gestationRoutes
 import ey.buriti.curral.routes.groupRoutes
 import ey.buriti.curral.routes.producaoRoutes
@@ -85,6 +86,7 @@ fun Application.configureRouting() {
             call.respondText("Curral API v1.0")
         }
         authenticate("supabase") {
+            farmRoutes()
             animalRoutes()
             groupRoutes()
             eventRoutes()

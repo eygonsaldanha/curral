@@ -26,7 +26,9 @@ import ey.buriti.curral.ui.screens.AnimalDetailScreen
 import ey.buriti.curral.ui.screens.AnimalGroupDetailScreen
 import ey.buriti.curral.ui.screens.AnimaisScreen
 import ey.buriti.curral.ui.screens.EditGestationScreen
+import ey.buriti.curral.ui.screens.EmailConfirmationScreen
 import ey.buriti.curral.ui.screens.EstoqueScreen
+import ey.buriti.curral.ui.screens.FarmOnboardingScreen
 import ey.buriti.curral.ui.screens.GestationResultScreen
 import ey.buriti.curral.ui.screens.HomeScreen
 import ey.buriti.curral.ui.screens.ManageAnimalGroupsScreen
@@ -41,6 +43,7 @@ import ey.buriti.curral.auth.AuthState
 import ey.buriti.curral.auth.IAuthRepository
 import ey.buriti.curral.ui.screens.LoginScreen
 import org.koin.compose.koinInject
+import kotlinx.coroutines.launch
 
 @Composable
 @Preview
@@ -53,8 +56,9 @@ fun App() {
 
         val authRepo: IAuthRepository = koinInject()
         val authState by authRepo.authState.collectAsState()
+        val authScope = rememberCoroutineScope()
 
-        when (authState) {
+        when (val state = authState) {
             is AuthState.Loading -> {
                 Box(modifier = Modifier.padding()) {
                     Text("Carregando…")
@@ -63,6 +67,17 @@ fun App() {
             }
             is AuthState.Unauthenticated -> {
                 LoginScreen()
+                return@MaterialTheme
+            }
+            is AuthState.AwaitingEmailConfirmation -> {
+                EmailConfirmationScreen(
+                    email = state.email,
+                    onBackToLogin = { authScope.launch { authRepo.signOut() } },
+                )
+                return@MaterialTheme
+            }
+            is AuthState.NeedsFarmSetup -> {
+                FarmOnboardingScreen()
                 return@MaterialTheme
             }
             is AuthState.Authenticated -> Unit // continua

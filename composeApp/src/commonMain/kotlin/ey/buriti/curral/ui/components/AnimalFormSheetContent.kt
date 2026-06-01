@@ -23,6 +23,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,7 +34,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ey.buriti.curral.data.AnimalRepository
 import ey.buriti.curral.model.Animal
 import ey.buriti.curral.model.AnimalSex
 import ey.buriti.curral.model.AnimalStatus
@@ -43,6 +43,8 @@ import ey.buriti.curral.ui.screens.sanitizeDecimalInput
 import ey.buriti.curral.ui.screens.toIsoDateOrNull
 import ey.buriti.curral.ui.screens.statusColors
 import ey.buriti.curral.ui.theme.CurralColors
+import ey.buriti.curral.ui.viewmodel.AnimaisViewModel
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,7 +53,10 @@ fun AnimalFormSheetContent(
     onSave: (String) -> Unit,
     animalId: String? = null,
 ) {
-    val editingAnimal = animalId?.let(AnimalRepository::getAnimal)
+    val vm: AnimaisViewModel = koinViewModel()
+    val allAnimals by vm.animals.collectAsState()
+    val editingAnimal = animalId?.let { id -> allAnimals.firstOrNull { it.id == id } }
+    val isEditing = animalId != null
 
     var name by remember(editingAnimal?.id) { mutableStateOf(editingAnimal?.name ?: "") }
     var selectedType by remember(editingAnimal?.id) { mutableStateOf(editingAnimal?.type) }
@@ -68,9 +73,10 @@ fun AnimalFormSheetContent(
     var motherDropdownExpanded by remember { mutableStateOf(false) }
     var fatherDropdownExpanded by remember { mutableStateOf(false) }
 
-    val femaleAnimals = AnimalRepository.animals.filter { it.sex == AnimalSex.FEMEA && it.id != animalId }
-    val maleAnimals = AnimalRepository.animals.filter { it.sex == AnimalSex.MACHO && it.id != animalId }
-    val canSave = name.isNotBlank() && selectedType != null && selectedSex != null && breed.isNotBlank() && tagNumber.isNotBlank()
+    val femaleAnimals = allAnimals.filter { it.sex == AnimalSex.FEMEA && it.id != animalId }
+    val maleAnimals = allAnimals.filter { it.sex == AnimalSex.MACHO && it.id != animalId }
+    val canSaveBase = name.isNotBlank() && selectedType != null && selectedSex != null && breed.isNotBlank() && tagNumber.isNotBlank()
+    val canSave = canSaveBase && (!isEditing || editingAnimal != null)
 
     Column(
         modifier = Modifier
@@ -81,7 +87,7 @@ fun AnimalFormSheetContent(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         FormHeader(
-            title = if (editingAnimal == null) "Novo Animal" else "Editar Animal",
+            title = if (isEditing) "Editar Animal" else "Novo Animal",
             onBack = onBack,
         )
 
@@ -283,29 +289,41 @@ fun AnimalFormSheetContent(
             onClick = {
                 val type = selectedType ?: return@Button
                 val sex = selectedSex ?: return@Button
-                val savedId = editingAnimal?.id ?: AnimalRepository.generateAnimalId()
-                val updatedAnimal = Animal(
-                    id = savedId,
-                    name = name.trim(),
-                    type = type,
-                    breed = breed.trim(),
-                    status = selectedStatus,
-                    sex = sex,
-                    tagNumber = tagNumber.trim(),
-                    birthDate = parseBirthDate(birthDate),
-                    weightKg = weight.toDoubleOrNull() ?: 0.0,
-                    groupIds = editingAnimal?.groupIds ?: emptyList(),
-                    motherId = selectedMotherId,
-                    fatherId = selectedFatherId,
-                    offspringIds = editingAnimal?.offspringIds ?: emptyList(),
-                    gestationId = editingAnimal?.gestationId,
-                )
-                if (editingAnimal == null) {
-                    AnimalRepository.addAnimal(updatedAnimal)
+                if (!isEditing) {
+                    vm.addAnimalFromForm(
+                        name = name.trim(),
+                        type = type,
+                        breed = breed.trim(),
+                        status = selectedStatus,
+                        sex = sex,
+                        tagNumber = tagNumber.trim(),
+                        birthDate = parseBirthDate(birthDate),
+                        weightKg = weight.toDoubleOrNull() ?: 0.0,
+                        motherId = selectedMotherId,
+                        fatherId = selectedFatherId,
+                    ) { newId -> onSave(newId) }
                 } else {
-                    AnimalRepository.updateAnimal(updatedAnimal)
+                    val current = editingAnimal ?: return@Button
+                    vm.updateAnimal(
+                        Animal(
+                            id = current.id,
+                            name = name.trim(),
+                            type = type,
+                            breed = breed.trim(),
+                            status = selectedStatus,
+                            sex = sex,
+                            tagNumber = tagNumber.trim(),
+                            birthDate = parseBirthDate(birthDate),
+                            weightKg = weight.toDoubleOrNull() ?: 0.0,
+                            groupIds = current.groupIds,
+                            motherId = selectedMotherId,
+                            fatherId = selectedFatherId,
+                            offspringIds = current.offspringIds,
+                            gestationId = current.gestationId,
+                        )
+                    )
+                    onSave(current.id)
                 }
-                onSave(savedId)
             },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
@@ -313,7 +331,7 @@ fun AnimalFormSheetContent(
             enabled = canSave,
         ) {
             Text(
-                if (editingAnimal == null) "Cadastrar Animal" else "Salvar Alterações",
+                if (isEditing) "Salvar Alterações" else "Cadastrar Animal",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
             )

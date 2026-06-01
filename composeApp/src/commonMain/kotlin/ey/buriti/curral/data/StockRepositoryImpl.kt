@@ -11,23 +11,25 @@ import kotlinx.coroutines.flow.map
 
 class StockRepositoryImpl(
     private val db: CurralDatabase,
-    private val farmId: String,
+    private val farmIdProvider: () -> String,
 ) : IStockRepository {
 
     private val dao get() = db.stockItemDao()
 
+    private fun farmId(): String = farmIdProvider()
+
     override fun getItems(): Flow<List<StockItem>> =
-        dao.getAll(farmId).map { list -> list.map { it.toDomain() } }
+        dao.getAll(farmId()).map { list -> list.map { it.toDomain() } }
 
     override fun getItemById(id: String): Flow<StockItem?> =
         dao.getById(id).map { it?.toDomain() }
 
     override suspend fun addItem(item: StockItem) {
-        dao.upsert(item.toEntity(farmId))
+        dao.upsert(item.toEntity(farmId()))
     }
 
     override suspend fun updateItem(item: StockItem) {
-        dao.upsert(item.toEntity(farmId))
+        dao.upsert(item.toEntity(farmId()))
     }
 
     override suspend fun deleteItem(id: String) {

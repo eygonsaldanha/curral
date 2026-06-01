@@ -11,8 +11,10 @@ interface IAuthRepository {
     /** ID da fazenda do usuário autenticado. */
     fun currentFarmId(): String?
 
-    suspend fun signInWithEmail(email: String, password: String): Result<AuthState.Authenticated>
-    suspend fun signUp(email: String, password: String): Result<AuthState.Authenticated>
+    suspend fun signInWithEmail(email: String, password: String): Result<Unit>
+    suspend fun signUp(email: String, password: String): Result<Unit>
+    suspend fun resendEmailConfirmation(email: String): Result<Unit>
+    suspend fun createFarmAndActivate(name: String): Result<Unit>
     suspend fun signOut()
     suspend fun refreshSession()
 }

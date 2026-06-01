@@ -20,9 +20,11 @@ fun LoginScreen(
     val uiState by vm.uiState.collectAsState()
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
     var isSignUp by remember { mutableStateOf(false) }
 
     val isLoading = uiState is AuthUiState.Loading
+    val infoMessage = (uiState as? AuthUiState.Info)?.message
     val errorMessage = (uiState as? AuthUiState.Error)?.message
 
     Column(
@@ -65,6 +67,25 @@ fun LoginScreen(
             modifier = Modifier.fillMaxWidth(),
         )
 
+        if (isSignUp) {
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = confirmPassword,
+                onValueChange = { confirmPassword = it; vm.clearError() },
+                label = { Text("Confirmar senha") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        infoMessage?.let {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = it, color = MaterialTheme.colorScheme.primary)
+        }
+
         errorMessage?.let {
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = it, color = MaterialTheme.colorScheme.error)
@@ -74,10 +95,10 @@ fun LoginScreen(
 
         Button(
             onClick = {
-                if (isSignUp) vm.signUp(email, password)
+                if (isSignUp) vm.signUp(email, password, confirmPassword)
                 else vm.signIn(email, password)
             },
-            enabled = !isLoading && email.isNotBlank() && password.isNotBlank(),
+            enabled = !isLoading && email.isNotBlank() && password.isNotBlank() && (!isSignUp || confirmPassword.isNotBlank()),
             modifier = Modifier.fillMaxWidth(),
         ) {
             if (isLoading) {

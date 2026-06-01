@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 sealed class AuthUiState {
     data object Idle : AuthUiState()
     data object Loading : AuthUiState()
+    data class Info(val message: String) : AuthUiState()
     data class Error(val message: String) : AuthUiState()
 }
 
@@ -28,11 +29,34 @@ class AuthViewModel(
             .onFailure { _uiState.value = AuthUiState.Error(it.message ?: "Erro ao entrar") }
     }
 
-    fun signUp(email: String, password: String) = viewModelScope.launch {
+    fun signUp(email: String, password: String, confirmPassword: String) = viewModelScope.launch {
+        if (password != confirmPassword) {
+            _uiState.value = AuthUiState.Error("As senhas não conferem")
+            return@launch
+        }
         _uiState.value = AuthUiState.Loading
         authRepo.signUp(email, password)
             .onSuccess { _uiState.value = AuthUiState.Idle }
             .onFailure { _uiState.value = AuthUiState.Error(it.message ?: "Erro ao criar conta") }
+    }
+
+    fun resendEmailConfirmation(email: String) = viewModelScope.launch {
+        _uiState.value = AuthUiState.Loading
+        authRepo.resendEmailConfirmation(email)
+            .onSuccess { _uiState.value = AuthUiState.Info("E-mail de confirmação reenviado") }
+            .onFailure { _uiState.value = AuthUiState.Error(it.message ?: "Erro ao reenviar confirmação") }
+    }
+
+    fun createFarmAndContinue(name: String) = viewModelScope.launch {
+        _uiState.value = AuthUiState.Loading
+        authRepo.createFarmAndActivate(name)
+            .onSuccess { _uiState.value = AuthUiState.Idle }
+            .onFailure { _uiState.value = AuthUiState.Error(it.message ?: "Erro ao criar fazenda") }
+    }
+
+    fun signOut() = viewModelScope.launch {
+        authRepo.signOut()
+        _uiState.value = AuthUiState.Idle
     }
 
     fun clearError() {
