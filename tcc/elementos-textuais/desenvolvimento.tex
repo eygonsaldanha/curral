@@ -1,0 +1,281 @@
+\chapter{Desenvolvimento do Sistema}
+\label{cap:desenvolvimento}
+
+Este capítulo descreve o desenvolvimento do Curral, uma aplicação multiplataforma voltada ao registro e à consulta de informações zootécnicas, sanitárias, produtivas e de estoque em pequenas e médias propriedades rurais. A exposição inicia-se pela \textit{stack} tecnológica, detalha a arquitetura e a divisão em camadas, formaliza os requisitos implementados e, em seguida, apresenta o fluxo principal de utilização. Por fim, são discutidas a persistência \textit{offline-first}, as dificuldades encontradas e a estratégia de validação adotada.
+
+A descrição foi elaborada a partir da versão implementada do sistema. Desse modo, funcionalidades previstas na proposta inicial, mas ainda não concluídas, não são apresentadas como resultados. Esse cuidado é especialmente relevante para as projeções financeiras, que permanecem fora do escopo da versão analisada.
+
+% ----------------------------------------------------------------------------
+\section{Stack Tecnológica}
+\label{sec:desenvolvimento-stack}
+
+O projeto foi estruturado como um monorrepositório Kotlin Multiplatform, composto por um cliente compartilhado, uma aplicação servidora, um módulo de modelos comuns e uma camada mínima de inicialização para iOS. O \autoref{quad:stack} apresenta as principais tecnologias identificadas nos arquivos de configuração do projeto.
+
+\begin{table}[htb]
+    \Caption{\label{quad:stack} Tecnologias empregadas no Curral}
+    \UNIFORtab{}{
+        \begin{tabular}{p{3.7cm} p{4.5cm} p{5.5cm}}
+            \toprule
+            \textbf{Finalidade} & \textbf{Tecnologia} & \textbf{Aplicação no sistema} \\
+            \midrule
+            Linguagem & Kotlin 2.3.20 & Código compartilhado, cliente e servidor \\
+            Interface & Compose Multiplatform 1.10.3 e Material 3 & Telas para Android, iOS e Desktop \\
+            API HTTP & Ktor 3.4.1 sobre Netty & Rotas autenticadas e sincronização \\
+            Persistência local & Room KMP 2.7.2 e SQLite & Operação do cliente sem conexão \\
+            Persistência remota & PostgreSQL, Exposed 0.61.0 e HikariCP 6.3.0 & Armazenamento centralizado no servidor \\
+            Migração do banco & Flyway 11.9.0 & Evolução versionada do esquema remoto \\
+            Autenticação & Supabase GoTrue e JWT & Identificação do usuário e proteção da API \\
+            Injeção de dependência & Koin 4.0.4 & Composição de repositórios, serviços e \textit{ViewModels} \\
+            Tarefas em segundo plano & WorkManager 2.10.1 & Sincronização periódica no Android \\
+            Build & Gradle e \textit{Version Catalog} & Compilação e centralização das versões \\
+            \bottomrule
+        \end{tabular}
+    }{
+        \Fonte{Elaboração própria}
+    }
+\end{table}
+
+O Compose Multiplatform permite compartilhar componentes de interface em \texttt{commonMain}, enquanto os pontos de integração com o sistema operacional permanecem nos conjuntos de código específicos de cada plataforma. No Android, o aplicativo é distribuído como APK; no iOS, o código compartilhado é empacotado como um \textit{framework} consumido por uma casca SwiftUI; no Desktop, a execução ocorre sobre a JVM. Essa organização reduz a duplicação de código sem eliminar as adaptações necessárias em cada plataforma \cite{kotlinMultiplatformDocs,composeMultiplatformDocs}.
+
+O servidor utiliza Ktor para receber requisições HTTP, validar tokens, serializar objetos e disponibilizar as rotas de fazendas, animais, grupos, eventos, gestações, produção, estoque e sincronização. O catálogo \texttt{libs.versions.toml} funciona como fonte única das versões, reduzindo divergências entre os módulos.
+
+% ----------------------------------------------------------------------------
+\section{Arquitetura do Sistema}
+\label{sec:desenvolvimento-arquitetura}
+
+\subsection{Visão Geral da Solução}
+\label{subsec:arquitetura-visao-geral}
+
+A solução é formada por dois contextos de execução. O primeiro corresponde ao aplicativo instalado no dispositivo do produtor, que contém a interface, o estado de apresentação, as regras de coordenação e o banco local. O segundo corresponde ao servidor, responsável pela autenticação das requisições, persistência centralizada e intercâmbio de alterações entre dispositivos. A comunicação ocorre por meio de uma API HTTP com documentos JSON.
+
+\begin{figure}[htb]
+    \centering
+    \Caption{\label{fig:arquitetura-geral} Visão arquitetural do Curral}
+    \UNIFORfig{}{
+        \fbox{
+            \begin{minipage}{0.92\textwidth}
+                \centering
+                \textbf{Aplicativo multiplataforma}\\[0.2cm]
+                Telas Compose $\rightarrow$ ViewModels/serviços $\rightarrow$ Repositórios $\rightarrow$ Room/SQLite\\[0.35cm]
+                $\updownarrow$ API HTTP autenticada (JSON/JWT)\\[0.35cm]
+                \textbf{Servidor Ktor}\\[0.2cm]
+                Rotas HTTP $\rightarrow$ transações Exposed $\rightarrow$ PostgreSQL\\[0.35cm]
+                \textbf{Serviço externo:} Supabase GoTrue para autenticação
+            \end{minipage}
+        }
+    }{
+        \Fonte{Elaboração própria}
+    }
+\end{figure}
+
+Essa separação atende a duas necessidades do problema de pesquisa: manter o registro disponível durante o trabalho de campo, mesmo quando a conectividade é instável, e consolidar os dados quando a rede volta a estar disponível. O banco local não funciona apenas como \textit{cache}; ele é a fonte consultada pelas telas e recebe primeiro as alterações realizadas pelo usuário.
+
+\subsection{Relação entre MVC e MVVM}
+\label{subsec:desenvolvimento-mvvm}
+
+O padrão arquitetural implementado no cliente é o MVVM (\textit{Model--View--ViewModel}), variação adequada a interfaces reativas. Sua relação com o MVC (\textit{Model--View--Controller}) pode ser compreendida pela responsabilidade de cada elemento. Em ambos os padrões, a apresentação é separada do modelo. No MVC tradicional, o controlador interpreta a entrada do usuário e seleciona as operações a serem executadas; no Curral, essa coordenação é realizada pelo \textit{ViewModel}, que também expõe o estado observável consumido pela interface \cite{fowler2002patterns}.
+
+No sistema desenvolvido, a \textit{View} corresponde às funções \textit{composable}, como \texttt{HomeScreen}, \texttt{AnimaisScreen} e \texttt{EstoqueScreen}. Elas exibem o estado e encaminham eventos, sem acessar diretamente o banco remoto. O papel de controle é exercido por classes como \texttt{AnimaisViewModel}, \texttt{AnimalDetailViewModel} e \texttt{HomeViewModel}. O \textit{Model} abrange as entidades compartilhadas, a exemplo de \texttt{Animal}, \texttt{AnimalEvent}, \texttt{Gestation}, \texttt{ProducaoEntry} e \texttt{StockItem}, além dos repositórios que oferecem operações sobre esses dados.
+
+Assim, a menção ao MVC neste trabalho deve ser entendida como referência à separação conceitual entre modelo, apresentação e coordenação. A classificação mais precisa da implementação do cliente é MVVM com o padrão Repositório e persistência \textit{offline-first}. Essa distinção evita atribuir ao projeto um controlador clássico que não existe no código.
+
+\subsection{Organização em Camadas}
+\label{subsec:desenvolvimento-camadas}
+
+A arquitetura do cliente pode ser descrita em três camadas principais --- entrada, serviço e repositório --- complementadas pelas fontes de dados. A dependência segue da camada externa para as abstrações internas, conforme o \autoref{quad:camadas}.
+
+\begin{table}[htb]
+    \Caption{\label{quad:camadas} Camadas lógicas do cliente}
+    \UNIFORtab{}{
+        \begin{tabular}{p{2.8cm} p{4.2cm} p{6.7cm}}
+            \toprule
+            \textbf{Camada} & \textbf{Elementos} & \textbf{Responsabilidade no Curral} \\
+            \midrule
+            Entrada/apresentação & \texttt{ui/screens}, \texttt{ui/components} e navegação & Apresentar formulários, listas, indicadores e alertas; capturar ações do usuário; observar o estado exposto pelos \textit{ViewModels}. \\
+            Serviço/aplicação & \texttt{ui/viewmodel}, \texttt{SyncEngine} e autenticação & Coordenar casos de uso, validar dados de entrada, transformar fluxos em estado de tela e acionar persistência ou sincronização. \\
+            Repositório & Interfaces \texttt{I*Repository} e classes \texttt{*RepositoryImpl} & Ocultar os detalhes de armazenamento, expor modelos de domínio e fornecer operações de consulta e alteração. \\
+            Fontes de dados & DAOs Room, \texttt{KtorApiService} e mapeadores & Executar consultas locais, transportar DTOs e converter representações entre banco, rede e domínio. \\
+            \bottomrule
+        \end{tabular}
+    }{
+        \Fonte{Elaboração própria}
+    }
+\end{table}
+
+Como exemplo, ao registrar um animal, a tela encaminha os valores ao \texttt{AnimaisViewModel}; o \textit{ViewModel} cria o modelo e solicita a operação ao \texttt{IAnimalRepository}; a implementação do repositório converte o modelo para uma entidade Room e o DAO grava o registro no SQLite. Após a gravação local, o \texttt{SyncEngine} tenta enviar a pendência ao servidor. A tela continua observando o fluxo local e pode refletir a inclusão antes da conclusão da comunicação remota.
+
+O uso de interfaces de repositório reduz o acoplamento dos \textit{ViewModels} às tecnologias de persistência. A composição das implementações é realizada pelo Koin, em módulos separados para banco, autenticação, API, repositórios, sincronização e \textit{ViewModels}. Essa estrutura permite substituir uma implementação sem alterar o código da tela, desde que o contrato seja mantido.
+
+\subsection{Arquitetura do Servidor}
+\label{subsec:arquitetura-servidor}
+
+No servidor, a camada de entrada é composta pelas rotas Ktor. Cada rota recebe e valida os parâmetros, obtém a fazenda associada ao usuário autenticado e executa uma transação por meio do Exposed. O PostgreSQL constitui a fonte de dados remota, e o Flyway aplica as migrações de esquema durante a inicialização.
+
+A versão analisada ainda não possui classes independentes de serviço e repositório no servidor. Parte das responsabilidades dessas camadas está concentrada nos arquivos de rota, que contêm tanto a coordenação HTTP quanto consultas e atualizações do Exposed. Essa escolha reduz a quantidade inicial de abstrações, mas aumenta o acoplamento e dificulta testes isolados. Uma evolução arquitetural consiste em extrair serviços de aplicação e repositórios do servidor, mantendo nas rotas apenas a conversão entre HTTP e os casos de uso. Essa limitação é registrada para que o texto represente a implementação existente, e não uma arquitetura idealizada.
+
+\subsection{Segurança e Isolamento por Fazenda}
+\label{subsec:arquitetura-seguranca}
+
+O Supabase GoTrue emite o JWT utilizado nas chamadas à API. O servidor valida a assinatura e extrai do campo \texttt{sub} a identidade do usuário. A fazenda não é obtida diretamente desse campo: ela é resolvida a partir da associação entre usuário e fazenda armazenada na tabela \texttt{user\_farms}. Quando o cabeçalho \texttt{X-Farm-Id} é informado, a associação é verificada antes da operação; caso contrário, utiliza-se a primeira fazenda vinculada ao usuário. As consultas de negócio incluem o identificador da fazenda, impedindo que um usuário acesse dados de uma propriedade à qual não esteja associado.
+
+% ----------------------------------------------------------------------------
+\section{Requisitos do Sistema}
+\label{sec:desenvolvimento-requisitos}
+
+Os requisitos foram derivados do problema de pesquisa, dos objetivos do trabalho e das funcionalidades presentes na versão analisada. A identificação por código permite relacioná-los às telas e aos mecanismos arquiteturais apresentados nas seções seguintes.
+
+\subsection{Requisitos Funcionais}
+\label{subsec:requisitos-funcionais}
+
+\begin{table}[htb]
+    \Caption{\label{quad:requisitos-funcionais} Requisitos funcionais implementados}
+    \UNIFORtab{}{
+        \begin{tabular}{p{1.3cm} p{11.7cm}}
+            \toprule
+            \textbf{Código} & \textbf{Descrição} \\
+            \midrule
+            RF01 & Permitir o cadastro, a autenticação e a identificação da fazenda vinculada ao usuário. \\
+            RF02 & Permitir cadastrar, consultar, editar e remover logicamente animais, com espécie, raça, sexo, identificação, nascimento, peso e situação. \\
+            RF03 & Permitir organizar animais em grupos para facilitar o manejo coletivo. \\
+            RF04 & Permitir registrar e consultar eventos sanitários e zootécnicos, incluindo vacinação, atendimento veterinário e controle de peso. \\
+            RF05 & Permitir registrar e acompanhar gestações e seus resultados. \\
+            RF06 & Permitir registrar e consultar a produção por tipo de produto, quantidade, unidade e data. \\
+            RF07 & Permitir cadastrar e atualizar itens de estoque, com quantidade, validade e limite mínimo. \\
+            RF08 & Apresentar, na tela inicial, indicadores e alertas obtidos dos registros de animais, gestações e estoque. \\
+            RF09 & Permitir a inclusão rápida de animal, evento, produção e item de estoque por um formulário acessível a partir da navegação principal. \\
+            RF10 & Sincronizar as alterações locais com o servidor quando houver conectividade, preservando registros pendentes durante falhas de rede. \\
+            \bottomrule
+        \end{tabular}
+    }{
+        \Fonte{Elaboração própria}
+    }
+\end{table}
+
+\subsection{Requisitos Não Funcionais}
+\label{subsec:requisitos-nao-funcionais}
+
+\begin{table}[htb]
+    \Caption{\label{quad:requisitos-nao-funcionais} Requisitos não funcionais}
+    \UNIFORtab{}{
+        \begin{tabular}{p{1.5cm} p{3.1cm} p{9.0cm}}
+            \toprule
+            \textbf{Código} & \textbf{Atributo} & \textbf{Descrição e mecanismo adotado} \\
+            \midrule
+            RNF01 & Usabilidade & A navegação deve apresentar rótulos em português, quatro destinos principais e acesso rápido ao cadastro, reduzindo a quantidade de passos nas atividades recorrentes. \\
+            RNF02 & Portabilidade & O núcleo da interface deve ser compartilhado entre Android, iOS e Desktop por meio do Kotlin Multiplatform e do Compose Multiplatform. \\
+            RNF03 & Disponibilidade & As operações essenciais devem permanecer utilizáveis sem conexão, por meio da gravação e da leitura no banco local. \\
+            RNF04 & Segurança & As rotas de negócio devem exigir JWT válido e verificar a associação entre usuário e fazenda. \\
+            RNF05 & Consistência & Os registros sincronizáveis devem possuir estado, versão, data de atualização e marca de exclusão lógica. \\
+            RNF06 & Manutenibilidade & A interface, a coordenação e o acesso a dados devem permanecer separados por \textit{ViewModels}, contratos de repositório e injeção de dependência. \\
+            RNF07 & Interoperabilidade & A comunicação entre cliente e servidor deve utilizar HTTP e JSON, com modelos de transferência compartilhados. \\
+            \bottomrule
+        \end{tabular}
+    }{
+        \Fonte{Elaboração própria}
+    }
+\end{table}
+
+Não foram definidos, na versão atual, valores quantitativos para tempo de resposta, disponibilidade do servidor ou volume máximo de registros. Por esse motivo, tais características não são apresentadas como requisitos mensuráveis. Sua definição exige experimentos e critérios de aceitação próprios.
+
+% ----------------------------------------------------------------------------
+\section{Visão Geral do Funcionamento}
+\label{sec:desenvolvimento-visao-geral}
+
+Após a autenticação (RF01), a aplicação direciona o usuário à tela inicial, que resume informações da propriedade e evidencia situações que demandam atenção (RF08). A barra inferior oferece acesso direto aos animais (RF02--RF05), à produção (RF06) e ao estoque (RF07). Um botão central abre o formulário de inclusão rápida (RF09), reduzindo a navegação necessária durante o manejo diário.
+
+O fluxo principal selecionado para demonstrar a resposta à problemática é o registro e o acompanhamento de um animal. Esse fluxo consolida dados que, em processos manuais, poderiam permanecer distribuídos entre cadernos e planilhas. Inicialmente, o animal é cadastrado com seus dados básicos (RF02). Em seguida, eventos de vacinação, pesagem ou atendimento são associados ao mesmo registro (RF04). A tela de detalhes reúne o histórico e permite acompanhar peso, grupos e reprodução (RF03--RF05). Por fim, a tela inicial utiliza esses dados para compor indicadores e alertas (RF08). A persistência local e a sincronização posterior permitem executar o mesmo percurso em locais com acesso intermitente à Internet (RF10 e RNF03).
+
+O \autoref{fig:telas-fluxo-principal} reserva as capturas correspondentes a esse percurso. Os arquivos são incluídos automaticamente quando adicionados à pasta \texttt{tcc/figuras}; na ausência deles, o documento exibe marcadores para evitar falha de compilação.
+
+\begin{figure}[htb]
+    \centering
+    \Caption{\label{fig:telas-fluxo-principal} Telas do fluxo principal de gestão do rebanho}
+    \UNIFORfig{}{
+        \begin{minipage}{0.31\textwidth}
+            \centering
+            \IfFileExists{figuras/tela-inicio.png}
+                {\includegraphics[width=\textwidth]{figuras/tela-inicio.png}}
+                {\fbox{\parbox[c][6.5cm][c]{0.88\textwidth}{\centering Inserir captura\\\texttt{tela-inicio.png}}}}\\
+            \small (a) Visão inicial e alertas (RF08)
+        \end{minipage}
+        \hfill
+        \begin{minipage}{0.31\textwidth}
+            \centering
+            \IfFileExists{figuras/tela-cadastro-animal.png}
+                {\includegraphics[width=\textwidth]{figuras/tela-cadastro-animal.png}}
+                {\fbox{\parbox[c][6.5cm][c]{0.88\textwidth}{\centering Inserir captura\\\texttt{tela-cadastro-animal.png}}}}\\
+            \small (b) Cadastro do animal (RF02 e RF09)
+        \end{minipage}
+        \hfill
+        \begin{minipage}{0.31\textwidth}
+            \centering
+            \IfFileExists{figuras/tela-detalhe-animal.png}
+                {\includegraphics[width=\textwidth]{figuras/tela-detalhe-animal.png}}
+                {\fbox{\parbox[c][6.5cm][c]{0.88\textwidth}{\centering Inserir captura\\\texttt{tela-detalhe-animal.png}}}}\\
+            \small (c) Histórico e manejo (RF03--RF05)
+        \end{minipage}
+    }{
+        \Fonte{Elaboração própria}
+    }
+\end{figure}
+
+Além desse percurso, a aplicação oferece o controle de produção e estoque. As entradas de produção são agrupadas por tipo e período para exibição de totais e comparação temporal. No estoque, cada item pode possuir um limite mínimo; quando a quantidade é menor ou igual a esse valor, a interface sinaliza a condição crítica. Esses módulos respondem à necessidade de reunir, em um mesmo ambiente, informações produtivas e operacionais da propriedade.
+
+% ----------------------------------------------------------------------------
+\section{Persistência e Sincronização Offline}
+\label{sec:desenvolvimento-persistencia}
+
+A estratégia \textit{offline-first} utiliza dois bancos independentes. No dispositivo, Room KMP opera sobre SQLite e fornece DAOs observáveis. No servidor, PostgreSQL mantém a cópia centralizada, acessada pelo Exposed. Os dois esquemas contemplam animais, grupos, eventos, gestações, produção e estoque.
+
+Cada registro local contém \texttt{syncStatus}, \texttt{version}, \texttt{updatedAt} e \texttt{deletedAt}. Uma inclusão ou alteração é gravada inicialmente com o estado \texttt{PENDING}. A exclusão é lógica: o registro recebe uma data em \texttt{deletedAt} e permanece disponível ao mecanismo de sincronização. Após a confirmação do servidor, o estado passa a \texttt{SYNCED} e a versão local é atualizada.
+
+O ciclo executado pelo \texttt{SyncEngine} possui duas fases. Na primeira, denominada \textit{push}, todas as entidades pendentes da fazenda ativa são reunidas em um \texttt{SyncPushPayload} e enviadas ao servidor. A resposta contém as versões e datas aceitas, utilizadas para marcar os registros locais como sincronizados. Na segunda fase, denominada \textit{pull}, o cliente solicita as alterações remotas posteriores a um instante de referência e as converte novamente em entidades locais.
+
+\begin{figure}[htb]
+    \centering
+    \Caption{\label{fig:fluxo-sincronizacao} Fluxo simplificado de persistência e sincronização}
+    \UNIFORfig{}{
+        \fbox{
+            \begin{minipage}{0.91\textwidth}
+                \centering
+                Ação do usuário $\rightarrow$ gravação no Room como \texttt{PENDING} $\rightarrow$ atualização imediata da tela\\[0.25cm]
+                $\downarrow$ quando a rede está disponível\\[0.25cm]
+                \textit{push} das pendências $\rightarrow$ persistência no PostgreSQL $\rightarrow$ confirmação de versão\\[0.25cm]
+                $\downarrow$\\[0.25cm]
+                \textit{pull} de alterações remotas $\rightarrow$ conversão de DTOs $\rightarrow$ atualização do Room
+            \end{minipage}
+        }
+    }{
+        \Fonte{Elaboração própria}
+    }
+\end{figure}
+
+No Android, o WorkManager agenda a sincronização periódica a cada quinze minutos, condicionada à disponibilidade de rede, e permite disparos imediatos. Nas implementações Desktop e iOS, o agendamento utiliza uma corrotina enquanto o processo permanece ativo. As diferenças refletem os mecanismos de execução em segundo plano disponíveis em cada plataforma.
+
+% ----------------------------------------------------------------------------
+\section{Dificuldades Encontradas}
+\label{sec:desenvolvimento-dificuldades}
+
+A principal dificuldade técnica foi a orquestração do funcionamento \textit{offline}. A simples existência de um banco local não garante consistência: é necessário distinguir alterações confirmadas de pendências, transportar exclusões sem remover imediatamente o registro, impedir mistura de dados entre fazendas e repetir operações após falhas de rede. Para tratar esses aspectos, foram introduzidos estados de sincronização, versionamento, datas de atualização, exclusão lógica e um ciclo explícito de \textit{push} seguido de \textit{pull}.
+
+Outra dificuldade decorreu da execução multiplataforma. O agendamento em segundo plano não possui comportamento idêntico no Android, iOS e Desktop. O WorkManager oferece restrições de conectividade e repetição persistente no Android, enquanto corrotinas executadas no processo não sobrevivem necessariamente ao encerramento do aplicativo nas demais plataformas. Por isso, foram definidos contratos \texttt{expect/actual} para o agendador, mantendo a chamada comum e isolando as implementações específicas.
+
+A resolução de conflitos permanece uma limitação. Embora o estado \texttt{CONFLICT} faça parte do modelo, a versão atual aceita a resposta do servidor e não implementa uma política completa para alterações concorrentes no mesmo registro. Além disso, o método de sincronização admite um instante para o \textit{pull}, mas as chamadas usuais utilizam o valor inicial da época Unix. Na prática, isso pode reprocessar registros já sincronizados. A persistência de um marcador de última sincronização e a definição de uma política de conflito constituem evoluções necessárias para reduzir tráfego e aumentar a previsibilidade.
+
+Também foi necessário compatibilizar os modelos de domínio, as entidades Room e os DTOs da API. Os mapeadores evitam que detalhes do banco ou da serialização sejam utilizados diretamente nas telas, porém exigem manutenção coordenada sempre que um campo é adicionado. Essa dificuldade é compensada pela separação de responsabilidades e pelo menor acoplamento entre apresentação e infraestrutura.
+
+% ----------------------------------------------------------------------------
+\section{Testes e Validação}
+\label{sec:desenvolvimento-testes}
+
+A validação automatizada existente cobre uma parte limitada do sistema. No servidor, o teste baseado em \texttt{testApplication} inicializa o módulo Ktor em memória e verifica a resposta da rota raiz. No cliente, testes em \texttt{commonTest} exercitam operações de um repositório em memória relacionadas a controle de peso, associação a grupos e resultado de gestação. Há ainda um teste elementar no módulo compartilhado.
+
+Esses testes verificam comportamentos pontuais, mas não constituem evidência suficiente para afirmar a validação integral dos repositórios Room, das rotas autenticadas ou da sincronização entre cliente e servidor. A ampliação recomendada inclui testes de DAO com banco temporário, testes das rotas protegidas com JWT controlado, cenários de falha e repetição do \texttt{SyncEngine}, exclusões lógicas e alterações concorrentes. A explicitação desse limite preserva a rastreabilidade entre o que foi implementado e o que foi efetivamente validado.
+
+% ----------------------------------------------------------------------------
+\section{Considerações do Capítulo}
+\label{sec:desenvolvimento-consideracoes}
+
+A implementação organiza o cliente em apresentação, serviços de aplicação e repositórios, com modelos e mecanismos de persistência compartilhados entre plataformas. O emprego de MVVM esclarece como a separação tradicional do MVC foi aplicada a uma interface reativa. Os requisitos funcionais concentram-se no rebanho, nos registros sanitários e produtivos, no estoque e na operação sem conexão, relacionando as decisões técnicas à problemática das informações fragmentadas e da conectividade rural.
+
+O funcionamento \textit{offline-first} representa o principal diferencial técnico e, simultaneamente, a maior fonte de complexidade. A solução implementada mantém as operações essenciais disponíveis e sincroniza pendências, mas ainda demanda evolução na resolução de conflitos, no marcador incremental e na cobertura de testes. Essas limitações delimitam o alcance dos resultados e indicam trabalhos futuros de maneira objetiva.
