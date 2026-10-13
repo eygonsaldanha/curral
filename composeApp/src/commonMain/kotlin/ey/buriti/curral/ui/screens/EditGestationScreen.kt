@@ -20,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
+import ey.buriti.curral.ui.components.formatDateInput
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -82,8 +83,8 @@ fun EditGestationScreen(
             Surface(shape = RoundedCornerShape(16.dp), color = Color.White) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Atualizar dados da gestação de ${currentAnimal.name}", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = CurralColors.TextPrimary)
-                    OutlinedTextField(value = startDate, onValueChange = { startDate = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Data da fecundação") })
-                    OutlinedTextField(value = expectedBirthDate, onValueChange = { expectedBirthDate = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Previsão de parto") })
+                    OutlinedTextField(value = startDate, onValueChange = { startDate = formatDateInput(it) }, modifier = Modifier.fillMaxWidth(), label = { Text("Data da fecundação") }, placeholder = { Text("00/00/0000") })
+                    OutlinedTextField(value = expectedBirthDate, onValueChange = { expectedBirthDate = formatDateInput(it) }, modifier = Modifier.fillMaxWidth(), label = { Text("Previsão de parto") }, placeholder = { Text("00/00/0000") })
                     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
                         OutlinedTextField(
                             value = maleAnimals.find { it.id == selectedFatherId }?.name.orEmpty(),

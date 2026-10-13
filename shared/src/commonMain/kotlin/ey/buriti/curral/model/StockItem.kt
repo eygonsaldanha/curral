@@ -2,6 +2,7 @@ package ey.buriti.curral.model
 
 data class StockItem(
     val id: String,
+    val code: String? = null,
     val name: String,
     val category: StockCategory,
     val quantity: Int,

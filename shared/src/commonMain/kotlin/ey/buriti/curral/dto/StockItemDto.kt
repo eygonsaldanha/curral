@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 data class StockItemDto(
     val id: String,
     val farmId: String,
+    val code: String? = null,
     val name: String,
     val category: String,
     val quantity: Int,

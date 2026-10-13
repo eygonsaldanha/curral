@@ -11,6 +11,7 @@ import ey.buriti.curral.dto.AnimalEventDto
 import ey.buriti.curral.dto.GestationDto
 import ey.buriti.curral.dto.ProducaoEntryDto
 import ey.buriti.curral.dto.StockItemDto
+import ey.buriti.curral.db.mapper.toDto
 import ey.buriti.curral.util.nowIso
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -27,6 +28,7 @@ class SyncEngine(
     private val gestationDao get() = db.gestationDao()
     private val producaoDao get() = db.producaoEntryDao()
     private val stockDao get() = db.stockItemDao()
+    private val activityDao get() = db.activityLogDao()
 
     /**
      * Executa um ciclo completo de sincronização:
@@ -100,14 +102,16 @@ class SyncEngine(
             val d = entity.toDomain()
             StockItemDto(
                 id = entity.id, farmId = entity.farmId, name = d.name,
+                code = d.code,
                 category = d.category.name, quantity = d.quantity, unit = d.unit,
                 expiryDate = d.expiryDate, lowStockThreshold = d.lowStockThreshold,
                 version = entity.version, updatedAt = entity.updatedAt,
                 deletedAt = entity.deletedAt,
             )
         }
+        val pendingActivities = activityDao.getPending(farmId).map { it.toDto() }
 
-        if (listOf(pendingAnimals, pendingGroups, pendingEvents, pendingGestations, pendingProducao, pendingStock)
+        if (listOf(pendingAnimals, pendingGroups, pendingEvents, pendingGestations, pendingProducao, pendingStock, pendingActivities)
                 .all { it.isEmpty() }) return
 
         val response = api.pushSync(
@@ -118,6 +122,7 @@ class SyncEngine(
                 gestations = pendingGestations,
                 producao = pendingProducao,
                 stock = pendingStock,
+                activities = pendingActivities,
             )
         )
 
@@ -128,6 +133,7 @@ class SyncEngine(
         response.gestations.forEach { gestationDao.markSynced(it.id, it.version, it.updatedAt) }
         response.producao.forEach { producaoDao.markSynced(it.id, it.version, it.updatedAt) }
         response.stock.forEach { stockDao.markSynced(it.id, it.version, it.updatedAt) }
+        response.activities.forEach { activityDao.markSynced(it.id, it.version, it.updatedAt) }
     }
 
     private suspend fun pull(since: String) {
@@ -194,5 +200,6 @@ class SyncEngine(
                 ).copy(deletedAt = dto.deletedAt)
             )
         }
+        response.activities.forEach { dto -> activityDao.upsert(dto.toEntity()) }
     }
 }

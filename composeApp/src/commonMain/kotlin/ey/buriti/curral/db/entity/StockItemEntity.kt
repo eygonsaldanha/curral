@@ -8,6 +8,7 @@ import ey.buriti.curral.sync.SyncStatus
 data class StockItemEntity(
     @PrimaryKey val id: String,
     val farmId: String,
+    val code: String? = null,
     val name: String,
     val category: String,
     val quantity: Int,

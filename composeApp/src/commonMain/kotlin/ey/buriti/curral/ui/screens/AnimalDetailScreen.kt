@@ -59,6 +59,7 @@ import ey.buriti.curral.model.EventType
 import ey.buriti.curral.model.Gestation
 import ey.buriti.curral.platform.getCurrentDate
 import ey.buriti.curral.ui.theme.CurralColors
+import ey.buriti.curral.ui.components.formatDateInput
 import ey.buriti.curral.ui.viewmodel.AnimalDetailViewModel
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -113,7 +114,7 @@ fun AnimalDetailScreen(
         ) {
             item { ProfileHeaderCard(animal = currentAnimal) }
             item { InfoGridCard(animal = currentAnimal) }
-            if (currentGestation != null) {
+            if (currentAnimal.sex == AnimalSex.FEMEA && currentGestation != null) {
                 item {
                     GestationCard(
                         gestation = currentGestation,
@@ -236,7 +237,7 @@ private fun InfoGridCard(animal: Animal) {
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
             Row(modifier = Modifier.fillMaxWidth()) {
-                InfoCell(label = "Brinco", value = "BR-${animal.tagNumber}", modifier = Modifier.weight(1f))
+                InfoCell(label = "Brinco", value = animal.tagNumber.ifBlank { "—" }, modifier = Modifier.weight(1f))
                 InfoCell(label = "Idade", value = ageLabel(animal.birthDate), modifier = Modifier.weight(1f))
             }
             HorizontalDivider(color = CurralColors.SearchBackground, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 8.dp))
@@ -597,8 +598,9 @@ private fun WeightDialog(
                 )
                 androidx.compose.material3.OutlinedTextField(
                     value = date,
-                    onValueChange = { date = it },
+                    onValueChange = { date = formatDateInput(it) },
                     label = { Text("Data") },
+                    placeholder = { Text("00/00/0000") },
                     singleLine = true,
                 )
                 androidx.compose.material3.OutlinedTextField(

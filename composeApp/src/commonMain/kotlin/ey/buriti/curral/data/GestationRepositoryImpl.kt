@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.map
 class GestationRepositoryImpl(
     private val db: CurralDatabase,
     private val farmIdProvider: () -> String,
+    private val activityRecorder: ActivityRecorder,
 ) : IGestationRepository {
 
     private val gestationDao get() = db.gestationDao()
@@ -28,14 +29,17 @@ class GestationRepositoryImpl(
 
     override suspend fun addGestation(gestation: Gestation) {
         gestationDao.upsert(gestation.toEntity(farmId()))
+        activityRecorder.record(ey.buriti.curral.model.ActivityType.GESTACAO, ey.buriti.curral.model.ActivityAction.CRIADO, gestation.animalId, "Gestação registrada", gestation.expectedBirthDate)
     }
 
     override suspend fun updateGestation(gestation: Gestation) {
         gestationDao.upsert(gestation.toEntity(farmId()))
+        activityRecorder.record(ey.buriti.curral.model.ActivityType.GESTACAO, ey.buriti.curral.model.ActivityAction.ATUALIZADO, gestation.animalId, "Gestação atualizada", gestation.expectedBirthDate)
     }
 
     override suspend fun deleteGestation(id: String) {
         gestationDao.softDelete(id, nowIso())
+        activityRecorder.record(ey.buriti.curral.model.ActivityType.GESTACAO, ey.buriti.curral.model.ActivityAction.EXCLUIDO, id, "Gestação encerrada")
     }
 
     override suspend fun generateGestationId(): String = "gest${nowIso().replace(":", "-")}"

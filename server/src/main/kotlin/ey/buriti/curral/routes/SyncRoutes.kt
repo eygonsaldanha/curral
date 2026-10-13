@@ -25,6 +25,7 @@ fun Route.syncRoutes() {
         val savedGestations = mutableListOf<GestationDto>()
         val savedProducao = mutableListOf<ProducaoEntryDto>()
         val savedStock = mutableListOf<StockItemDto>()
+        val savedActivities = mutableListOf<ActivityLogDto>()
 
         transaction {
             payload.animals.forEach { dto ->
@@ -125,6 +126,7 @@ fun Route.syncRoutes() {
                 StockItems.upsert {
                     it[StockItems.id] = dto.id
                     it[StockItems.farmId] = farmId
+                    it[StockItems.code] = dto.code
                     it[StockItems.name] = dto.name
                     it[StockItems.category] = dto.category
                     it[StockItems.quantity] = dto.quantity
@@ -137,6 +139,24 @@ fun Route.syncRoutes() {
                 }
                 savedStock.add(dto.copy(version = newVersion, updatedAt = now))
             }
+
+            payload.activities.forEach { dto ->
+                val newVersion = dto.version + 1
+                ActivityLogs.upsert {
+                    it[ActivityLogs.id] = dto.id
+                    it[ActivityLogs.farmId] = farmId
+                    it[ActivityLogs.type] = dto.type
+                    it[ActivityLogs.action] = dto.action
+                    it[ActivityLogs.entityId] = dto.entityId
+                    it[ActivityLogs.occurredAt] = dto.occurredAt
+                    it[ActivityLogs.title] = dto.title
+                    it[ActivityLogs.description] = dto.description
+                    it[ActivityLogs.subjectName] = dto.subjectName
+                    it[ActivityLogs.version] = newVersion
+                    it[ActivityLogs.updatedAt] = now
+                }
+                savedActivities.add(dto.copy(farmId = farmId, version = newVersion, updatedAt = now))
+            }
         }
 
         call.respond(
@@ -147,6 +167,7 @@ fun Route.syncRoutes() {
                 gestations = savedGestations,
                 producao = savedProducao,
                 stock = savedStock,
+                activities = savedActivities,
             )
         )
     }
@@ -231,12 +252,25 @@ fun Route.syncRoutes() {
                     .map { row ->
                         StockItemDto(
                             id = row[StockItems.id], farmId = row[StockItems.farmId],
+                            code = row[StockItems.code],
                             name = row[StockItems.name], category = row[StockItems.category],
                             quantity = row[StockItems.quantity], unit = row[StockItems.unit],
                             expiryDate = row[StockItems.expiryDate],
                             lowStockThreshold = row[StockItems.lowStockThreshold],
                             version = row[StockItems.version], updatedAt = row[StockItems.updatedAt],
                             deletedAt = row[StockItems.deletedAt],
+                        )
+                    },
+                activities = ActivityLogs.selectAll()
+                    .where { (ActivityLogs.farmId eq farmId) and (ActivityLogs.updatedAt greaterEq since) }
+                    .map { row ->
+                        ActivityLogDto(
+                            id = row[ActivityLogs.id], farmId = row[ActivityLogs.farmId],
+                            type = row[ActivityLogs.type], action = row[ActivityLogs.action],
+                            entityId = row[ActivityLogs.entityId], occurredAt = row[ActivityLogs.occurredAt],
+                            title = row[ActivityLogs.title], description = row[ActivityLogs.description],
+                            subjectName = row[ActivityLogs.subjectName], version = row[ActivityLogs.version],
+                            updatedAt = row[ActivityLogs.updatedAt],
                         )
                     },
             )

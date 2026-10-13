@@ -1,8 +1,8 @@
 package ey.buriti.curral.auth
 
-import ey.buriti.curral.API_BASE_URL
 import ey.buriti.curral.SUPABASE_ANON_KEY
 import ey.buriti.curral.SUPABASE_URL
+import ey.buriti.curral.platform.ApiConfig
 import ey.buriti.curral.dto.CreateFarmRequest
 import ey.buriti.curral.dto.FarmDto
 import io.ktor.client.HttpClient
@@ -27,7 +27,14 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-class SupabaseAuthRepository : IAuthRepository {
+class SupabaseAuthRepository(
+    private val apiConfig: ApiConfig?,
+) : IAuthRepository {
+
+    // Compose Hot Reload pode preservar a instância criada antes da adição desta
+    // dependência. O fallback evita que essa instância antiga quebre o login no JVM.
+    private val apiBaseUrl: String
+        get() = apiConfig?.baseUrl ?: "http://127.0.0.1:8080"
 
     private val _authState = MutableStateFlow<AuthState>(AuthState.Unauthenticated)
     override val authState: StateFlow<AuthState> = _authState.asStateFlow()
@@ -139,7 +146,7 @@ class SupabaseAuthRepository : IAuthRepository {
             val farmName = name.trim()
             require(farmName.isNotBlank()) { "Informe o nome da fazenda" }
 
-            val response = client.post("$API_BASE_URL/api/farms") {
+            val response = client.post("$apiBaseUrl/api/farms") {
                 bearerAuth(currentState.token)
                 contentType(ContentType.Application.Json)
                 setBody(CreateFarmRequest(name = farmName))
@@ -165,7 +172,7 @@ class SupabaseAuthRepository : IAuthRepository {
     override suspend fun refreshSession() = Unit
 
     private suspend fun fetchUserFarms(token: String): List<FarmDto> {
-        val response = client.get("$API_BASE_URL/api/farms") {
+        val response = client.get("$apiBaseUrl/api/farms") {
             bearerAuth(token)
         }
         if (!response.status.isSuccess()) {

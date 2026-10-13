@@ -32,13 +32,10 @@ import ey.buriti.curral.model.StockCategory
 import ey.buriti.curral.model.StockItem
 import ey.buriti.curral.ui.theme.CurralColors
 import ey.buriti.curral.ui.viewmodel.EstoqueViewModel
+import ey.buriti.curral.platform.getCurrentDate
 import org.koin.compose.viewmodel.koinViewModel
 
 // ─── Badge helpers ──────────────────────────────────────────────────────────────
-
-private val TODAY_YEAR  = 2026
-private val TODAY_MONTH = 5
-private val TODAY_DAY   = 7
 
 private enum class StockBadge { NONE, BAIXO, VENCENDO, VENCIDO }
 
@@ -49,7 +46,8 @@ private fun stockBadge(item: StockItem): StockBadge {
     return try {
         val parts = expiry.split("-")
         val y = parts[0].toInt(); val m = parts[1].toInt(); val d = parts[2].toInt()
-        val todayDays = TODAY_YEAR * 365 + TODAY_MONTH * 30 + TODAY_DAY
+        val today = getCurrentDate()
+        val todayDays = today.year * 365 + today.month * 30 + today.day
         val expiryDays = y * 365 + m * 30 + d
         when {
             expiryDays < todayDays -> StockBadge.VENCIDO
@@ -91,7 +89,7 @@ fun EstoqueScreen(
     val categories = StockCategory.entries
     val filtered = items.filter { item ->
         (selectedCategory == null || item.category == selectedCategory) &&
-        (search.isBlank() || item.name.contains(search, ignoreCase = true))
+        (search.isBlank() || item.name.contains(search, ignoreCase = true) || item.code?.contains(search, ignoreCase = true) == true)
     }
 
     // Scroll to the highlighted item once it appears in the list
@@ -233,6 +231,9 @@ private fun StockItemRow(
                     if (badge != StockBadge.NONE) {
                         BadgeChip(badge)
                     }
+                }
+                item.code?.takeIf { it.isNotBlank() }?.let { code ->
+                    Text("Código: $code", fontSize = 11.sp, color = CurralColors.TextSecondary)
                 }
                 Spacer(Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.Bottom) {

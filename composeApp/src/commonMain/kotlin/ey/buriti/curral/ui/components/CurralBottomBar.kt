@@ -1,18 +1,18 @@
 package ey.buriti.curral.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.Pets
-import androidx.compose.material.icons.automirrored.filled.ShowChart
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,90 +27,78 @@ fun CurralBottomBar(
     currentScreen: Screen,
     onScreenSelected: (Screen) -> Unit,
     onFabClick: () -> Unit,
-    modifier: Modifier = Modifier
+    onSearchClick: () -> Unit,
+    onScanClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(88.dp)
+    Column(
+        modifier = modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally)
+            .widthIn(max = 720.dp).padding(horizontal = 20.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        // Bottom bar
         Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(64.dp)
-                .align(Alignment.BottomCenter),
-            shadowElevation = 12.dp,
-            color = CurralColors.Surface
+            color = CurralColors.Surface.copy(alpha = 0.78f),
+            contentColor = CurralColors.TextPrimary,
+            shape = RoundedCornerShape(30.dp),
+            border = BorderStroke(1.dp, CurralColors.NavInactive.copy(alpha = 0.35f)),
+            shadowElevation = 10.dp,
+            modifier = Modifier.fillMaxWidth().height(54.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxSize(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                BottomNavItem(Screen.HOME, currentScreen == Screen.HOME) {
-                    onScreenSelected(Screen.HOME)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier.weight(1f).fillMaxHeight().clickable(onClick = onSearchClick).padding(horizontal = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Default.Search, contentDescription = null, tint = CurralColors.FabGreen)
+                    Spacer(Modifier.width(12.dp))
+                    Text("Buscar animais e estoque", fontSize = 16.sp, color = CurralColors.TextSecondary)
                 }
-                BottomNavItem(Screen.ANIMAIS, currentScreen == Screen.ANIMAIS) {
-                    onScreenSelected(Screen.ANIMAIS)
-                }
-                // Space for center FAB
-                Spacer(Modifier.width(56.dp))
-                BottomNavItem(Screen.PRODUCAO, currentScreen == Screen.PRODUCAO) {
-                    onScreenSelected(Screen.PRODUCAO)
-                }
-                BottomNavItem(Screen.ESTOQUE, currentScreen == Screen.ESTOQUE) {
-                    onScreenSelected(Screen.ESTOQUE)
+                IconButton(onClick = onScanClick, modifier = Modifier.padding(end = 8.dp)) {
+                    Icon(Icons.Default.QrCodeScanner, contentDescription = "Ler QR code ou código de barras", tint = CurralColors.FabGreen)
                 }
             }
         }
-
-        // Floating center FAB
-        FloatingActionButton(
-            onClick = onFabClick,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .offset(y = 4.dp)
-                .size(56.dp),
-            containerColor = CurralColors.FabGreen,
-            contentColor = Color.White,
-            shape = CircleShape,
-            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp)
+        Surface(
+            color = CurralColors.Surface.copy(alpha = 0.78f),
+            shape = RoundedCornerShape(34.dp),
+            border = BorderStroke(1.dp, CurralColors.NavInactive.copy(alpha = 0.3f)),
+            shadowElevation = 12.dp,
+            modifier = Modifier.fillMaxWidth().height(68.dp),
         ) {
-            Icon(Icons.Filled.Add, contentDescription = "Adicionar", modifier = Modifier.size(28.dp))
+            Row(
+                Modifier.fillMaxSize().padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                DockItem(Icons.Default.Home, "Início", currentScreen == Screen.HOME) { onScreenSelected(Screen.HOME) }
+                DockItem(Icons.Default.History, "Atividade", currentScreen == Screen.ACTIVITY) { onScreenSelected(Screen.ACTIVITY) }
+                Surface(
+                    color = CurralColors.FabGreen,
+                    contentColor = Color.Black,
+                    shape = CircleShape,
+                    modifier = Modifier.size(52.dp).clickable(onClick = onFabClick),
+                ) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.Add, "Adicionar", Modifier.size(29.dp)) } }
+            }
         }
     }
 }
 
 @Composable
-private fun BottomNavItem(
-    screen: Screen,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    val icon: ImageVector = when (screen) {
-        Screen.HOME -> Icons.Filled.Home
-        Screen.ANIMAIS -> Icons.Filled.Pets
-        Screen.PRODUCAO -> Icons.AutoMirrored.Filled.ShowChart
-        Screen.ESTOQUE -> Icons.Filled.Inventory2
-    }
-    val tint = if (isSelected) CurralColors.NavActive else CurralColors.NavInactive
-
+private fun DockItem(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
     Column(
-        modifier = Modifier
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick
-            )
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = Modifier.width(94.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(icon, contentDescription = screen.label, tint = tint, modifier = Modifier.size(24.dp))
-        Spacer(Modifier.height(2.dp))
-        Text(text = screen.label, fontSize = 11.sp, color = tint)
+        Surface(
+            shape = CircleShape,
+            color = if (selected) CurralColors.FabGreen.copy(alpha = 0.14f) else Color.Transparent,
+            modifier = Modifier.size(42.dp).clickable(onClick = onClick),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = label, tint = if (selected) CurralColors.NavActive else CurralColors.NavInactive)
+            }
+        }
+        Text(label, fontSize = 11.sp, color = if (selected) CurralColors.NavActive else CurralColors.NavInactive)
     }
 }
-
-
-

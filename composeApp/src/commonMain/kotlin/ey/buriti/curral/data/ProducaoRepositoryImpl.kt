@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.map
 class ProducaoRepositoryImpl(
     private val db: CurralDatabase,
     private val farmIdProvider: () -> String,
+    private val activityRecorder: ActivityRecorder,
 ) : IProducaoRepository {
 
     private val dao get() = db.producaoEntryDao()
@@ -22,10 +23,12 @@ class ProducaoRepositoryImpl(
 
     override suspend fun addEntry(entry: ProducaoEntry) {
         dao.upsert(entry.toEntity(farmId()))
+        activityRecorder.record(ey.buriti.curral.model.ActivityType.PRODUCAO, ey.buriti.curral.model.ActivityAction.CRIADO, entry.id, "Produção registrada", "${entry.quantity} ${entry.unit}", entry.productType.label)
     }
 
     override suspend fun deleteEntry(id: String) {
         dao.softDelete(id, nowIso())
+        activityRecorder.record(ey.buriti.curral.model.ActivityType.PRODUCAO, ey.buriti.curral.model.ActivityAction.EXCLUIDO, id, "Registro de produção removido")
     }
 
     override suspend fun generateId(): String = "prod${nowIso().replace(":", "-")}"

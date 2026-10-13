@@ -1,50 +1,24 @@
 package ey.buriti.curral.ui.components
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MenuAnchorType
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ey.buriti.curral.model.Animal
-import ey.buriti.curral.model.AnimalSex
-import ey.buriti.curral.model.AnimalStatus
-import ey.buriti.curral.model.AnimalType
-import ey.buriti.curral.platform.getCurrentDate
-import ey.buriti.curral.ui.screens.sanitizeDecimalInput
-import ey.buriti.curral.ui.screens.toIsoDateOrNull
-import ey.buriti.curral.ui.screens.statusColors
+import ey.buriti.curral.model.*
 import ey.buriti.curral.ui.theme.CurralColors
-import ey.buriti.curral.ui.viewmodel.AnimaisViewModel
+import ey.buriti.curral.ui.viewmodel.AnimalFormUiState
+import ey.buriti.curral.ui.viewmodel.AnimalFormViewModel
 import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,343 +26,233 @@ fun AnimalFormSheetContent(
     onBack: () -> Unit,
     onSave: (String) -> Unit,
     animalId: String? = null,
+    initialTagNumber: String? = null,
 ) {
-    val vm: AnimaisViewModel = koinViewModel()
-    val allAnimals by vm.animals.collectAsState()
-    val editingAnimal = animalId?.let { id -> allAnimals.firstOrNull { it.id == id } }
-    val isEditing = animalId != null
+    val vm: AnimalFormViewModel = koinViewModel { parametersOf(animalId) }
+    val state by vm.state.collectAsState()
+    var photoLabel by remember(animalId) { mutableStateOf<String?>(null) }
+    var motherExpanded by remember { mutableStateOf(false) }
+    var fatherExpanded by remember { mutableStateOf(false) }
+    var showExitDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(initialTagNumber, state.isLoading) {
+        if (!state.isLoading && animalId == null && state.tagNumber.isBlank() && !initialTagNumber.isNullOrBlank()) {
+            vm.updateTag(initialTagNumber)
+        }
+    }
+    LaunchedEffect(state.isDirty, state.step, state.name, state.type, state.breed, state.sex, state.tagNumber,
+        state.birthDate, state.weight, state.status, state.motherId, state.fatherId) {
+        if (state.isDirty && !state.isEditing) vm.saveDraft()
+    }
 
-    var name by remember(editingAnimal?.id) { mutableStateOf(editingAnimal?.name ?: "") }
-    var selectedType by remember(editingAnimal?.id) { mutableStateOf(editingAnimal?.type) }
-    var breed by remember(editingAnimal?.id) { mutableStateOf(editingAnimal?.breed ?: "") }
-    var selectedSex by remember(editingAnimal?.id) { mutableStateOf(editingAnimal?.sex) }
-    var tagNumber by remember(editingAnimal?.id) { mutableStateOf(editingAnimal?.tagNumber ?: "") }
-    var birthDate by remember(editingAnimal?.id) { mutableStateOf(editingAnimal?.birthDate?.toDisplayDate().orEmpty()) }
-    var weight by remember(editingAnimal?.id) { mutableStateOf(editingAnimal?.weightKg?.toString().orEmpty()) }
-    var selectedStatus by remember(editingAnimal?.id) { mutableStateOf(editingAnimal?.status ?: AnimalStatus.SAUDAVEL) }
-    var selectedMotherId by remember(editingAnimal?.id) { mutableStateOf(editingAnimal?.motherId) }
-    var selectedFatherId by remember(editingAnimal?.id) { mutableStateOf(editingAnimal?.fatherId) }
-    var photoLabel by remember(editingAnimal?.id) { mutableStateOf<String?>(null) }
-
-    var motherDropdownExpanded by remember { mutableStateOf(false) }
-    var fatherDropdownExpanded by remember { mutableStateOf(false) }
-
-    val femaleAnimals = allAnimals.filter { it.sex == AnimalSex.FEMEA && it.id != animalId }
-    val maleAnimals = allAnimals.filter { it.sex == AnimalSex.MACHO && it.id != animalId }
-    val canSaveBase = name.isNotBlank() && selectedType != null && selectedSex != null && breed.isNotBlank() && tagNumber.isNotBlank()
-    val canSave = canSaveBase && (!isEditing || editingAnimal != null)
-
+    if (state.isLoading) {
+        Box(Modifier.fillMaxWidth().height(300.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        return
+    }
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp)
-            .padding(bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max = 720.dp)
+            .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         FormHeader(
-            title = if (isEditing) "Editar Animal" else "Novo Animal",
-            onBack = onBack,
+            title = if (state.isEditing) "Editar animal" else "Novo animal",
+            onBack = {
+                if (state.step > 0) vm.previous()
+                else if (state.isDirty) showExitDialog = true
+                else onBack()
+            },
+            showClose = state.step == 0,
         )
-
-        AnimalFormField("Nome *") {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
+        state.errorMessage?.let { message ->
+            Surface(
+                color = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                placeholder = { Text("Ex: Mimosa") },
-                singleLine = true,
-            )
-        }
-
-        AnimalFormField("Tipo *") {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(AnimalType.VACA, AnimalType.BOI, AnimalType.CAVALO).forEach { type ->
-                        AnimalTypeChip(type = type, selected = selectedType == type, onClick = { selectedType = type }, modifier = Modifier.weight(1f))
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(AnimalType.BODE, AnimalType.GALINHA, AnimalType.OUTRO).forEach { type ->
-                        AnimalTypeChip(type = type, selected = selectedType == type, onClick = { selectedType = type }, modifier = Modifier.weight(1f))
-                    }
-                }
-            }
-        }
-
-        AnimalFormField("Raça *") {
-            OutlinedTextField(
-                value = breed,
-                onValueChange = { breed = it },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                placeholder = { Text("Ex: Nelore, Gir, Angus...") },
-                singleLine = true,
-            )
-        }
-
-        AnimalFormField("Sexo *") {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                AnimalSex.entries.forEach { sex ->
-                    val selected = sex == selectedSex
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (selected) CurralColors.FabGreen else Color.White,
-                        modifier = Modifier.weight(1f).clickable { selectedSex = sex },
-                    ) {
-                        Text(
-                            sex.label,
-                            modifier = Modifier
-                                .padding(vertical = 10.dp)
-                                .fillMaxWidth(),
-                            fontSize = 14.sp,
-                            color = if (selected) Color.White else CurralColors.TextPrimary,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                        )
-                    }
-                }
-            }
-        }
-
-        AnimalFormField("Status") {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(AnimalStatus.SAUDAVEL, AnimalStatus.PRENHA, AnimalStatus.DOENTE).forEach { status ->
-                        val (bg, fg) = statusColors(status)
-                        val selected = selectedStatus == status
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (selected) bg else Color.White,
-                            modifier = Modifier.weight(1f).clickable { selectedStatus = status },
-                        ) {
-                            Text(
-                                status.label,
-                                modifier = Modifier
-                                    .padding(vertical = 8.dp)
-                                    .fillMaxWidth(),
-                                fontSize = 12.sp,
-                                color = if (selected) fg else CurralColors.TextSecondary,
-                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            AnimalFormField("Nº Brinco *", modifier = Modifier.weight(1f)) {
-                OutlinedTextField(
-                    value = tagNumber,
-                    onValueChange = { tagNumber = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    placeholder = { Text("0001") },
-                    singleLine = true,
-                )
-            }
-            AnimalFormField("Peso (kg)", modifier = Modifier.weight(1f)) {
-                OutlinedTextField(
-                    value = weight,
-                    onValueChange = { weight = sanitizeDecimalInput(it) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    placeholder = { Text("500") },
-                    singleLine = true,
-                )
-            }
-        }
-
-        AnimalFormField("Data de Nascimento") {
-            OutlinedTextField(
-                value = birthDate,
-                onValueChange = { birthDate = it },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                placeholder = { Text("DD/MM/AAAA") },
-                singleLine = true,
-            )
-        }
-
-        AnimalFormField("Mãe (opcional)") {
-            ExposedDropdownMenuBox(
-                expanded = motherDropdownExpanded,
-                onExpandedChange = { motherDropdownExpanded = it },
             ) {
-                OutlinedTextField(
-                    value = femaleAnimals.find { it.id == selectedMotherId }?.let { "${it.type.emoji} ${it.name}" }.orEmpty(),
-                    onValueChange = {},
-                    readOnly = true,
-                    modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                    shape = RoundedCornerShape(10.dp),
-                    placeholder = { Text("Selecionar mãe") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = motherDropdownExpanded) },
-                )
-                ExposedDropdownMenu(
-                    expanded = motherDropdownExpanded,
-                    onDismissRequest = { motherDropdownExpanded = false },
-                ) {
-                    DropdownMenuItem(text = { Text("Nenhuma") }, onClick = {
-                        selectedMotherId = null
-                        motherDropdownExpanded = false
-                    })
-                    femaleAnimals.forEach { animal ->
-                        DropdownMenuItem(
-                            text = { Text("${animal.type.emoji} ${animal.name}") },
-                            onClick = {
-                                selectedMotherId = animal.id
-                                motherDropdownExpanded = false
-                            },
-                        )
-                    }
-                }
+                Text(message, modifier = Modifier.padding(14.dp), fontSize = 13.sp)
             }
         }
+        WizardProgress(state.step)
+        Text(stepTitle(state.step), color = CurralColors.TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text(stepDescription(state.step), color = CurralColors.TextSecondary)
 
-        AnimalFormField("Pai (opcional)") {
-            ExposedDropdownMenuBox(
-                expanded = fatherDropdownExpanded,
-                onExpandedChange = { fatherDropdownExpanded = it },
+        when (state.step) {
+            0 -> IdentificationStep(state, vm)
+            1 -> ConditionStep(state, vm)
+            else -> LinksStep(state, vm, photoLabel, { photoLabel = it }, motherExpanded, { motherExpanded = it }, fatherExpanded, { fatherExpanded = it })
+        }
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (state.step > 0) {
+                OutlinedButton(onClick = vm::previous, modifier = Modifier.weight(1f), shape = RoundedCornerShape(18.dp)) {
+                    Text("Voltar", modifier = Modifier.padding(vertical = 5.dp))
+                }
+            }
+            Button(
+                onClick = { if (state.step < 2) vm.next() else vm.save(onSave) },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(18.dp),
+                enabled = !state.isSaving,
+                colors = ButtonDefaults.buttonColors(containerColor = CurralColors.FabGreen, contentColor = Color.Black),
             ) {
-                OutlinedTextField(
-                    value = maleAnimals.find { it.id == selectedFatherId }?.let { "${it.type.emoji} ${it.name}" }.orEmpty(),
-                    onValueChange = {},
-                    readOnly = true,
-                    modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                    shape = RoundedCornerShape(10.dp),
-                    placeholder = { Text("Selecionar pai") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = fatherDropdownExpanded) },
-                )
-                ExposedDropdownMenu(
-                    expanded = fatherDropdownExpanded,
-                    onDismissRequest = { fatherDropdownExpanded = false },
-                ) {
-                    DropdownMenuItem(text = { Text("Nenhum") }, onClick = {
-                        selectedFatherId = null
-                        fatherDropdownExpanded = false
-                    })
-                    maleAnimals.forEach { animal ->
-                        DropdownMenuItem(
-                            text = { Text("${animal.type.emoji} ${animal.name}") },
-                            onClick = {
-                                selectedFatherId = animal.id
-                                fatherDropdownExpanded = false
-                            },
-                        )
-                    }
-                }
+                if (state.isSaving) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.Black)
+                else Text(if (state.step < 2) "Continuar" else if (state.isEditing) "Salvar alterações" else "Cadastrar animal",
+                    modifier = Modifier.padding(vertical = 5.dp), fontWeight = FontWeight.Bold)
             }
         }
+    }
 
-        AnimalFormField("Foto (opcional)") {
-            PhotoAttachmentField(selectedPhotoLabel = photoLabel, onPhotoSelected = { photoLabel = it })
-        }
-
-        Button(
-            onClick = {
-                val type = selectedType ?: return@Button
-                val sex = selectedSex ?: return@Button
-                if (!isEditing) {
-                    vm.addAnimalFromForm(
-                        name = name.trim(),
-                        type = type,
-                        breed = breed.trim(),
-                        status = selectedStatus,
-                        sex = sex,
-                        tagNumber = tagNumber.trim(),
-                        birthDate = parseBirthDate(birthDate),
-                        weightKg = weight.toDoubleOrNull() ?: 0.0,
-                        motherId = selectedMotherId,
-                        fatherId = selectedFatherId,
-                    ) { newId -> onSave(newId) }
-                } else {
-                    val current = editingAnimal ?: return@Button
-                    vm.updateAnimal(
-                        Animal(
-                            id = current.id,
-                            name = name.trim(),
-                            type = type,
-                            breed = breed.trim(),
-                            status = selectedStatus,
-                            sex = sex,
-                            tagNumber = tagNumber.trim(),
-                            birthDate = parseBirthDate(birthDate),
-                            weightKg = weight.toDoubleOrNull() ?: 0.0,
-                            groupIds = current.groupIds,
-                            motherId = selectedMotherId,
-                            fatherId = selectedFatherId,
-                            offspringIds = current.offspringIds,
-                            gestationId = current.gestationId,
-                        )
-                    )
-                    onSave(current.id)
+    if (showExitDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            title = { Text("Sair sem concluir?") },
+            text = { Text(if (state.isEditing) "As alterações não salvas serão perdidas." else "Você pode manter os dados como rascunho para continuar depois.") },
+            confirmButton = {
+                if (!state.isEditing) {
+                    TextButton(onClick = { vm.saveDraft(); showExitDialog = false; onBack() }) { Text("Salvar rascunho") }
                 }
             },
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = CurralColors.FabGreen),
-            enabled = canSave,
-        ) {
-            Text(
-                if (isEditing) "Salvar Alterações" else "Cadastrar Animal",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { showExitDialog = false }) { Text("Continuar") }
+                    TextButton(onClick = { vm.clearDraft(); showExitDialog = false; onBack() }) { Text("Limpar e sair") }
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun WizardProgress(step: Int) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        repeat(3) { index ->
+            Surface(color = if (index <= step) CurralColors.FabGreen else CurralColors.SearchBackground,
+                shape = RoundedCornerShape(8.dp), modifier = Modifier.weight(1f).height(5.dp)) {}
+        }
+    }
+    Text("Etapa ${step + 1} de 3", color = CurralColors.TextSecondary, fontSize = 12.sp)
+}
+
+@Composable
+private fun IdentificationStep(s: AnimalFormUiState, vm: AnimalFormViewModel) {
+    FormTextField("Nome *", s.name, vm::updateName, "Ex: Mimosa", s.errors["name"])
+    FormSection("Tipo *", s.errors["type"]) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            AnimalType.entries.chunked(3).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    row.forEach { type -> Choice(type.label, "", s.type == type, Modifier.weight(1f)) { vm.updateType(type) } }
+                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
+        }
+    }
+    FormTextField("Raça *", s.breed, vm::updateBreed, "Nelore, Gir, Angus…", s.errors["breed"])
+    FormSection("Sexo *", s.errors["sex"]) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AnimalSex.entries.forEach { sex -> Choice(sex.label, "", s.sex == sex, Modifier.weight(1f)) { vm.updateSex(sex) } }
+        }
+    }
+    FormTextField("Número do brinco *", s.tagNumber, vm::updateTag, "0001", s.errors["tag"])
+}
+
+@Composable
+private fun ConditionStep(s: AnimalFormUiState, vm: AnimalFormViewModel) {
+    FormSection("Status", null) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val statuses = if (s.sex == AnimalSex.MACHO) {
+                listOf(AnimalStatus.SAUDAVEL, AnimalStatus.DOENTE)
+            } else {
+                listOf(AnimalStatus.SAUDAVEL, AnimalStatus.PRENHA, AnimalStatus.DOENTE)
+            }
+            statuses.forEach { status ->
+                Choice(status.label, "", s.status == status, Modifier.weight(1f)) { vm.updateStatus(status) }
+            }
+        }
+    }
+    FormTextField("Data de nascimento", s.birthDate, { vm.updateBirthDate(formatDateInput(it)) }, "00/00/0000", s.errors["birthDate"])
+    FormTextField("Peso (kg)", s.weight, vm::updateWeight, "500", s.errors["weight"])
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LinksStep(
+    s: AnimalFormUiState,
+    vm: AnimalFormViewModel,
+    photoLabel: String?,
+    onPhoto: (String?) -> Unit,
+    motherExpanded: Boolean,
+    onMotherExpanded: (Boolean) -> Unit,
+    fatherExpanded: Boolean,
+    onFatherExpanded: (Boolean) -> Unit,
+) {
+    val females = s.animals.filter { it.sex == AnimalSex.FEMEA && it.id != s.entityId() }
+    val males = s.animals.filter { it.sex == AnimalSex.MACHO && it.id != s.entityId() }
+    AnimalDropdown("Mãe (opcional)", females, s.motherId, motherExpanded, onMotherExpanded, vm::updateMother)
+    AnimalDropdown("Pai (opcional)", males, s.fatherId, fatherExpanded, onFatherExpanded, vm::updateFather)
+    FormSection("Foto (opcional)", null) {
+        PhotoAttachmentField(selectedPhotoLabel = photoLabel, onPhotoSelected = onPhoto)
+    }
+}
+
+private fun AnimalFormUiState.entityId(): String? = animals.firstOrNull { it.tagNumber == tagNumber && it.name == name }?.id
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AnimalDropdown(label: String, options: List<Animal>, selectedId: String?, expanded: Boolean,
+    onExpanded: (Boolean) -> Unit, onSelected: (String?) -> Unit) {
+    FormSection(label, null) {
+        ExposedDropdownMenuBox(expanded, onExpandedChange = onExpanded) {
+            OutlinedTextField(
+                value = options.firstOrNull { it.id == selectedId }?.name.orEmpty(), onValueChange = {}, readOnly = true,
+                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                placeholder = { Text("Selecionar") }, shape = RoundedCornerShape(16.dp),
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             )
+            ExposedDropdownMenu(expanded, onDismissRequest = { onExpanded(false) }) {
+                DropdownMenuItem({ Text("Nenhum") }, onClick = { onSelected(null); onExpanded(false) })
+                options.forEach { animal -> DropdownMenuItem({ Text("${animal.type.emoji} ${animal.name}") },
+                    onClick = { onSelected(animal.id); onExpanded(false) }) }
+            }
         }
     }
 }
 
 @Composable
-private fun AnimalTypeChip(
-    type: AnimalType,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun FormTextField(label: String, value: String, onChange: (String) -> Unit, placeholder: String, error: String?) {
+    FormSection(label, error) {
+        OutlinedTextField(value, onChange, Modifier.fillMaxWidth(), placeholder = { Text(placeholder) }, singleLine = true,
+            isError = error != null, shape = RoundedCornerShape(16.dp))
+    }
+}
+
+@Composable
+private fun FormSection(label: String, error: String?, content: @Composable () -> Unit) {
+    Column {
+        Text(label, color = CurralColors.TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
+            modifier = Modifier.padding(bottom = 6.dp))
+        content()
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp)) }
+    }
+}
+
+@Composable
+private fun Choice(label: String, emoji: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = if (selected) CurralColors.FabGreen else Color.White,
+        shape = RoundedCornerShape(16.dp),
+        color = if (selected) CurralColors.FabGreen else CurralColors.SearchBackground,
+        contentColor = if (selected) Color.Black else CurralColors.TextPrimary,
         modifier = modifier.clickable(onClick = onClick),
     ) {
-        Column(
-            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(type.emoji, fontSize = 18.sp)
-            Text(
-                type.label,
-                fontSize = 11.sp,
-                color = if (selected) Color.White else CurralColors.TextPrimary,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            )
+        Column(Modifier.padding(vertical = 12.dp, horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            if (emoji.isNotBlank()) Text(emoji, fontSize = 20.sp)
+            Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }
 
-@Composable
-private fun AnimalFormField(
-    label: String,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    Column(modifier = modifier) {
-        Text(
-            label,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
-            color = CurralColors.TextSecondary,
-            modifier = Modifier.padding(bottom = 4.dp),
-        )
-        content()
-    }
-}
-
-private fun parseBirthDate(ddMmYyyy: String): String {
-    return ddMmYyyy.toIsoDateOrNull() ?: getCurrentDate().toIsoDateString()
-}
-
-private fun String.toDisplayDate(): String {
-    val parts = split("-")
-    return if (parts.size == 3) "${parts[2]}/${parts[1]}/${parts[0]}" else this
+private fun stepTitle(step: Int) = when (step) { 0 -> "Identificação"; 1 -> "Condição"; else -> "Vínculos" }
+private fun stepDescription(step: Int) = when (step) {
+    0 -> "Informe os dados usados para reconhecer o animal."
+    1 -> "Registre a condição e as medidas atuais."
+    else -> "Relacione a origem e adicione uma foto, se desejar."
 }

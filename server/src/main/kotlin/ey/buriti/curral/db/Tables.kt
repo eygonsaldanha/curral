@@ -100,6 +100,7 @@ object ProducaoEntries : Table("producao_entries") {
 object StockItems : Table("stock_items") {
     val id = text("id")
     val farmId = text("farm_id")
+    val code = text("code").nullable()
     val name = text("name")
     val category = text("category")
     val quantity = integer("quantity")
@@ -109,5 +110,20 @@ object StockItems : Table("stock_items") {
     val version = long("version").default(0)
     val updatedAt = text("updated_at")
     val deletedAt = text("deleted_at").nullable()
+    override val primaryKey = PrimaryKey(id)
+}
+
+object ActivityLogs : Table("activity_logs") {
+    val id = text("id")
+    val farmId = text("farm_id")
+    val type = text("type")
+    val action = text("action")
+    val entityId = text("entity_id").nullable()
+    val occurredAt = text("occurred_at")
+    val title = text("title")
+    val description = text("description").default("")
+    val subjectName = text("subject_name").default("")
+    val version = long("version").default(0)
+    val updatedAt = text("updated_at")
     override val primaryKey = PrimaryKey(id)
 }

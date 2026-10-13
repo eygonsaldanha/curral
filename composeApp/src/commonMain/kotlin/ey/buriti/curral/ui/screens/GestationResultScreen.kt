@@ -17,6 +17,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
+import ey.buriti.curral.ui.components.formatDateInput
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -97,7 +98,7 @@ fun GestationResultScreen(
                             }
                         }
                     }
-                    OutlinedTextField(value = date, onValueChange = { date = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Data") })
+                    OutlinedTextField(value = date, onValueChange = { date = formatDateInput(it) }, modifier = Modifier.fillMaxWidth(), label = { Text("Data") }, placeholder = { Text("00/00/0000") })
                     dateError?.let { Text(it, color = Color.Red, fontSize = 12.sp) }
                     OutlinedTextField(value = notes, onValueChange = { notes = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Observações") })
                     Button(

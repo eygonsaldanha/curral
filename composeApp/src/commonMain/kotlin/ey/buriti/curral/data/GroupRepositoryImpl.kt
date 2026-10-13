@@ -14,6 +14,7 @@ import kotlinx.serialization.json.Json
 class GroupRepositoryImpl(
     private val db: CurralDatabase,
     private val farmIdProvider: () -> String,
+    private val activityRecorder: ActivityRecorder,
 ) : IGroupRepository {
 
     private val groupDao get() = db.animalGroupDao()
@@ -47,15 +48,18 @@ class GroupRepositoryImpl(
             description = description.trim(),
         )
         groupDao.upsert(group.toEntity(farmId()))
+        activityRecorder.record(ey.buriti.curral.model.ActivityType.GRUPO, ey.buriti.curral.model.ActivityAction.CRIADO, group.id, "Grupo criado", subjectName = group.name)
         return group
     }
 
     override suspend fun updateGroup(group: AnimalGroup) {
         groupDao.upsert(group.toEntity(farmId()))
+        activityRecorder.record(ey.buriti.curral.model.ActivityType.GRUPO, ey.buriti.curral.model.ActivityAction.ATUALIZADO, group.id, "Grupo atualizado", subjectName = group.name)
     }
 
     override suspend fun deleteGroup(id: String) {
         groupDao.softDelete(id, nowIso())
+        activityRecorder.record(ey.buriti.curral.model.ActivityType.GRUPO, ey.buriti.curral.model.ActivityAction.EXCLUIDO, id, "Grupo removido")
     }
 
     override suspend fun addAnimalToGroup(animalId: String, groupId: String) {
@@ -69,6 +73,7 @@ class GroupRepositoryImpl(
         if (groupId !in animalGroupIds) {
             animalDao.upsert(animalEntity.copy(groupIdsJson = Json.encodeToString(animalGroupIds + groupId)))
         }
+        activityRecorder.record(ey.buriti.curral.model.ActivityType.GRUPO, ey.buriti.curral.model.ActivityAction.ATUALIZADO, groupId, "Animal adicionado ao grupo", animalEntity.name, groupEntity.name)
     }
 
     override suspend fun removeAnimalFromGroup(animalId: String, groupId: String) {
@@ -78,6 +83,7 @@ class GroupRepositoryImpl(
         val animalGroupIds = Json.decodeFromString<List<String>>(animalEntity.groupIdsJson)
         groupDao.upsert(groupEntity.copy(animalIdsJson = Json.encodeToString(groupIds - animalId)))
         animalDao.upsert(animalEntity.copy(groupIdsJson = Json.encodeToString(animalGroupIds - groupId)))
+        activityRecorder.record(ey.buriti.curral.model.ActivityType.GRUPO, ey.buriti.curral.model.ActivityAction.ATUALIZADO, groupId, "Animal removido do grupo", animalEntity.name, groupEntity.name)
     }
 
     override suspend fun generateGroupId(): String = "g${nowIso().replace(":", "-")}"

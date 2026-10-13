@@ -1,7 +1,9 @@
 package ey.buriti.curral.di
 
 import ey.buriti.curral.ui.viewmodel.AnimaisViewModel
+import ey.buriti.curral.ui.viewmodel.ActivityViewModel
 import ey.buriti.curral.ui.viewmodel.AnimalDetailViewModel
+import ey.buriti.curral.ui.viewmodel.AnimalFormViewModel
 import ey.buriti.curral.ui.viewmodel.AnimalGroupDetailViewModel
 import ey.buriti.curral.ui.viewmodel.AuthViewModel
 import ey.buriti.curral.ui.viewmodel.EditGestationViewModel
@@ -15,8 +17,10 @@ import org.koin.dsl.module
 
 val viewModelModule = module {
     factory { AuthViewModel(get()) }
+    factory { ActivityViewModel(get()) }
     factory { AnimaisViewModel(get(), get(), get(), get(), get()) }
     factory { (animalId: String) -> AnimalDetailViewModel(animalId, get(), get(), get(), get()) }
+    factory { (animalId: String?) -> AnimalFormViewModel(animalId, get(), get()) }
     factory { HomeViewModel(get(), get(), get(), get(), get(), get(), get()) }
     factory { EstoqueViewModel(get(), get()) }
     factory { ProducaoViewModel(get(), get()) }

@@ -6,6 +6,6 @@ import ey.buriti.curral.auth.SupabaseAuthRepository
 import org.koin.dsl.module
 
 val authModule = module {
-    single<IAuthRepository> { SupabaseAuthRepository() }
+    single<IAuthRepository> { SupabaseAuthRepository(apiConfig = get()) }
     single { SessionManager(get()) }
 }

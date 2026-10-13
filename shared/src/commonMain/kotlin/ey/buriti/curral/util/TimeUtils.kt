@@ -1,8 +1,8 @@
 package ey.buriti.curral.util
 
-import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 
 /** Retorna o timestamp atual em formato ISO-8601 (UTC). */
 fun nowIso(): String = Clock.System.now().toString()

@@ -8,22 +8,38 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Medication
+import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material.icons.filled.PrecisionManufacturing
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.ShowChart
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ey.buriti.curral.platform.getCurrentDate
+import ey.buriti.curral.platform.CodeScanResult
+import ey.buriti.curral.platform.CodeScanner
 import ey.buriti.curral.model.*
 import ey.buriti.curral.ui.theme.CurralColors
 import ey.buriti.curral.ui.viewmodel.AnimaisViewModel
 import ey.buriti.curral.ui.viewmodel.EstoqueViewModel
 import ey.buriti.curral.ui.viewmodel.ProducaoViewModel
+import ey.buriti.curral.ui.viewmodel.*
+import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 enum class QuickAddPage { MENU, ANIMAL, PRODUCAO, EVENTO, ESTOQUE }
@@ -33,6 +49,7 @@ data class QuickAddRequest(
     val preselectedAnimalId: String? = null,
     val preselectedGroupId: String? = null,
     val editingAnimalId: String? = null,
+    val initialCode: String? = null,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,13 +60,16 @@ fun QuickAddSheet(
     onAnimalSaved: (String) -> Unit = {},
 ) {
     var page by remember(request) { mutableStateOf(request.initialPage) }
-    val onSubpageBack: () -> Unit = {
+    var showExitDialog by remember { mutableStateOf(false) }
+    val leaveForm: () -> Unit = {
         if (request.initialPage == QuickAddPage.MENU) page = QuickAddPage.MENU else onDismiss()
     }
+    val onSubpageBack: () -> Unit = { showExitDialog = true }
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (page == QuickAddPage.MENU) onDismiss() else showExitDialog = true },
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetGesturesEnabled = page == QuickAddPage.MENU,
         containerColor = CurralColors.Background,
     ) {
         when (page) {
@@ -60,12 +80,13 @@ fun QuickAddSheet(
                 onSelectEstoque = { page = QuickAddPage.ESTOQUE },
             )
             QuickAddPage.ANIMAL -> AnimalFormSheetContent(
-                onBack = onSubpageBack,
+                onBack = leaveForm,
                 onSave = {
                     onAnimalSaved(it)
                     onDismiss()
                 },
                 animalId = request.editingAnimalId,
+                initialTagNumber = request.initialCode,
             )
             QuickAddPage.PRODUCAO -> ProducaoFormContent(
                 onBack = onSubpageBack,
@@ -80,8 +101,36 @@ fun QuickAddSheet(
             QuickAddPage.ESTOQUE -> EstoqueFormContent(
                 onBack = onSubpageBack,
                 onSave = { onDismiss() },
+                initialCode = request.initialCode,
             )
         }
+    }
+
+    if (showExitDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            title = { Text("Sair sem salvar?") },
+            text = { Text("Você pode manter este preenchimento como rascunho ou limpar os dados.") },
+            confirmButton = {
+                TextButton(onClick = { showExitDialog = false; leaveForm() }) { Text("Salvar rascunho") }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { showExitDialog = false }) { Text("Continuar") }
+                    TextButton(onClick = {
+                        when (page) {
+                            QuickAddPage.ANIMAL -> FormDraftStore.animal = null
+                            QuickAddPage.PRODUCAO -> FormDraftStore.production = null
+                            QuickAddPage.EVENTO -> FormDraftStore.event = null
+                            QuickAddPage.ESTOQUE -> FormDraftStore.stock = null
+                            QuickAddPage.MENU -> Unit
+                        }
+                        showExitDialog = false
+                        leaveForm()
+                    }) { Text("Limpar e sair") }
+                }
+            },
+        )
     }
 }
 
@@ -108,19 +157,19 @@ private fun SheetMenu(
             modifier = Modifier.padding(vertical = 12.dp),
         )
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            MenuTile(emoji = "📊", label = "Produção", onClick = onSelectProducao, modifier = Modifier.weight(1f))
-            MenuTile(emoji = "🐄", label = "Animal", onClick = onSelectAnimal, modifier = Modifier.weight(1f))
+            MenuTile(icon = Icons.Default.ShowChart, label = "Produção", onClick = onSelectProducao, modifier = Modifier.weight(1f))
+            MenuTile(icon = Icons.Default.Pets, label = "Animal", onClick = onSelectAnimal, modifier = Modifier.weight(1f))
         }
         Spacer(Modifier.height(12.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            MenuTile(emoji = "📅", label = "Evento", onClick = onSelectEvento, modifier = Modifier.weight(1f))
-            MenuTile(emoji = "📦", label = "Estoque", onClick = onSelectEstoque, modifier = Modifier.weight(1f))
+            MenuTile(icon = Icons.Default.Event, label = "Evento", onClick = onSelectEvento, modifier = Modifier.weight(1f))
+            MenuTile(icon = Icons.Default.Inventory2, label = "Estoque", onClick = onSelectEstoque, modifier = Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-private fun MenuTile(emoji: String, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun MenuTile(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
         shape = RoundedCornerShape(14.dp),
         color = CurralColors.Surface,
@@ -133,7 +182,7 @@ private fun MenuTile(emoji: String, label: String, onClick: () -> Unit, modifier
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Text(emoji, fontSize = 28.sp)
+            Icon(icon, contentDescription = null, tint = CurralColors.FabGreen, modifier = Modifier.size(28.dp))
             Spacer(Modifier.height(6.dp))
             Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = CurralColors.TextPrimary)
         }
@@ -143,7 +192,7 @@ private fun MenuTile(emoji: String, label: String, onClick: () -> Unit, modifier
 // ─── Shared helpers ────────────────────────────────────────────────────────────
 
 @Composable
-internal fun FormHeader(title: String, onBack: () -> Unit) {
+internal fun FormHeader(title: String, onBack: () -> Unit, showClose: Boolean = false) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -152,7 +201,11 @@ internal fun FormHeader(title: String, onBack: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = CurralColors.TextPrimary)
+            Icon(
+                if (showClose) Icons.Default.Close else Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = if (showClose) "Fechar" else "Voltar",
+                tint = CurralColors.TextPrimary,
+            )
         }
         Text(title, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = CurralColors.TextPrimary)
     }
@@ -209,12 +262,13 @@ private fun dateToIsoOrNull(dd_mm_yyyy: String): String? {
 @Composable
 private fun ProducaoFormContent(onBack: () -> Unit, onSave: () -> Unit) {
     val vm: ProducaoViewModel = koinViewModel()
-    var productType by remember { mutableStateOf<ProductType?>(null) }
-    var quantity by remember { mutableStateOf("") }
-    var unit by remember { mutableStateOf("kg") }
-    var date by remember { mutableStateOf(getCurrentDate().toDisplayDateString()) }
-    var notes by remember { mutableStateOf("") }
-    var photoLabel by remember { mutableStateOf<String?>(null) }
+    val draft = remember { FormDraftStore.production }
+    var productType by remember { mutableStateOf(draft?.productType) }
+    var quantity by remember { mutableStateOf(draft?.quantity.orEmpty()) }
+    var unit by remember { mutableStateOf(draft?.unit ?: "kg") }
+    var date by remember { mutableStateOf(draft?.date ?: getCurrentDate().toDisplayDateString()) }
+    var notes by remember { mutableStateOf(draft?.notes.orEmpty()) }
+    var photoLabel by remember { mutableStateOf(draft?.photoLabel) }
     var dateError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(productType) {
@@ -222,6 +276,11 @@ private fun ProducaoFormContent(onBack: () -> Unit, onSave: () -> Unit) {
             ProductType.LEITE -> "L"
             ProductType.OVOS -> "und"
             else -> "kg"
+        }
+    }
+    LaunchedEffect(productType, quantity, unit, date, notes, photoLabel) {
+        if (productType != null || quantity.isNotBlank() || notes.isNotBlank() || photoLabel != null) {
+            FormDraftStore.production = ProductionFormDraft(productType, quantity, unit, date, notes, photoLabel)
         }
     }
 
@@ -233,7 +292,7 @@ private fun ProducaoFormContent(onBack: () -> Unit, onSave: () -> Unit) {
             .padding(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        FormHeader(title = "Nova Entrada de Produção", onBack = onBack)
+        FormHeader(title = "Nova Entrada de Produção", onBack = onBack, showClose = true)
 
         FormField("Tipo de Produto") {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -303,10 +362,10 @@ private fun ProducaoFormContent(onBack: () -> Unit, onSave: () -> Unit) {
         FormField("Data") {
             OutlinedTextField(
                 value = date,
-                onValueChange = { date = it },
+                onValueChange = { date = formatDateInput(it) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp),
-                placeholder = { Text("DD/MM/AAAA") },
+                placeholder = { Text("00/00/0000") },
                 trailingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = CurralColors.NavInactive) },
                 singleLine = true,
             )
@@ -347,6 +406,7 @@ private fun ProducaoFormContent(onBack: () -> Unit, onSave: () -> Unit) {
                     date = isoDate,
                     notes = notes,
                 )
+                FormDraftStore.production = null
                 onSave()
             },
             modifier = Modifier.fillMaxWidth(),
@@ -380,21 +440,30 @@ private fun EventoFormContent(
     val animals by vm.animals.collectAsState()
     val groups by vm.groups.collectAsState()
 
-    var title by remember { mutableStateOf("") }
-    var selectedType by remember { mutableStateOf<EventType?>(null) }
-    var date by remember { mutableStateOf(getCurrentDate().toDisplayDateString()) }
-    var time by remember { mutableStateOf("") }
+    val draft = remember { FormDraftStore.event }
+    var title by remember { mutableStateOf(draft?.title.orEmpty()) }
+    var selectedType by remember { mutableStateOf(draft?.type) }
+    var date by remember { mutableStateOf(draft?.date ?: getCurrentDate().toDisplayDateString()) }
+    var time by remember { mutableStateOf(draft?.time.orEmpty()) }
     var assignToAnimal by remember(preselectedAnimalId, preselectedGroupId) {
-        mutableStateOf(preselectedAnimalId != null || preselectedGroupId == null)
+        mutableStateOf(draft?.assignToAnimal ?: (preselectedAnimalId != null || preselectedGroupId == null))
     }
-    var selectedAnimalId by remember(preselectedAnimalId) { mutableStateOf(preselectedAnimalId) }
-    var selectedGroupId by remember(preselectedGroupId) { mutableStateOf(preselectedGroupId) }
-    var description by remember { mutableStateOf("") }
-    var photoLabel by remember { mutableStateOf<String?>(null) }
+    var selectedAnimalId by remember(preselectedAnimalId) { mutableStateOf(preselectedAnimalId ?: draft?.animalId) }
+    var selectedGroupId by remember(preselectedGroupId) { mutableStateOf(preselectedGroupId ?: draft?.groupId) }
+    var description by remember { mutableStateOf(draft?.description.orEmpty()) }
+    var photoLabel by remember { mutableStateOf(draft?.photoLabel) }
     var formError by remember { mutableStateOf<String?>(null) }
 
     var animalDropdownExpanded by remember { mutableStateOf(false) }
     var groupDropdownExpanded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(title, selectedType, date, time, assignToAnimal, selectedAnimalId, selectedGroupId, description, photoLabel) {
+        if (title.isNotBlank() || selectedType != null || time.isNotBlank() || description.isNotBlank() || photoLabel != null) {
+            FormDraftStore.event = EventFormDraft(
+                title, selectedType, date, time, assignToAnimal, selectedAnimalId, selectedGroupId, description, photoLabel,
+            )
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -404,7 +473,7 @@ private fun EventoFormContent(
             .padding(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        FormHeader(title = "Novo Evento", onBack = onBack)
+        FormHeader(title = "Novo Evento", onBack = onBack, showClose = true)
 
         FormField("Título") {
             OutlinedTextField(
@@ -468,10 +537,10 @@ private fun EventoFormContent(
             FormField("Data") {
                 OutlinedTextField(
                     value = date,
-                    onValueChange = { date = it },
+                    onValueChange = { date = formatDateInput(it) },
                     modifier = Modifier.width(160.dp),
                     shape = RoundedCornerShape(10.dp),
-                    placeholder = { Text("DD/MM/AAAA") },
+                    placeholder = { Text("00/00/0000") },
                     singleLine = true,
                 )
             }
@@ -615,6 +684,7 @@ private fun EventoFormContent(
                     animalId = animalId,
                     groupId = groupId,
                 )
+                FormDraftStore.event = null
                 onSave()
             },
             modifier = Modifier.fillMaxWidth(),
@@ -637,16 +707,29 @@ private fun formatEventNotes(title: String, description: String): String {
 // ─── Estoque Form ──────────────────────────────────────────────────────────────
 
 @Composable
-private fun EstoqueFormContent(onBack: () -> Unit, onSave: () -> Unit) {
+private fun EstoqueFormContent(onBack: () -> Unit, onSave: () -> Unit, initialCode: String? = null) {
     val vm: EstoqueViewModel = koinViewModel()
-    var selectedCategory by remember { mutableStateOf<StockCategory?>(null) }
-    var name by remember { mutableStateOf("") }
-    var quantity by remember { mutableStateOf("") }
-    var unit by remember { mutableStateOf("") }
-    var expiryDate by remember { mutableStateOf("") }
-    var lowStockThreshold by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
+    val codeScanner: CodeScanner = koinInject()
+    val scope = rememberCoroutineScope()
+    val draft = remember { FormDraftStore.stock }
+    var selectedCategory by remember { mutableStateOf(draft?.category) }
+    var name by remember { mutableStateOf(draft?.name.orEmpty()) }
+    var code by remember(initialCode) { mutableStateOf(initialCode ?: draft?.code.orEmpty()) }
+    var quantity by remember { mutableStateOf(draft?.quantity.orEmpty()) }
+    var unit by remember { mutableStateOf(draft?.unit.orEmpty()) }
+    var expiryDate by remember { mutableStateOf(draft?.expiryDate.orEmpty()) }
+    var lowStockThreshold by remember { mutableStateOf(draft?.lowStockThreshold.orEmpty()) }
+    var notes by remember { mutableStateOf(draft?.notes.orEmpty()) }
     var formError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(selectedCategory, name, code, quantity, unit, expiryDate, lowStockThreshold, notes) {
+        if (selectedCategory != null || name.isNotBlank() || code.isNotBlank() || quantity.isNotBlank() ||
+            unit.isNotBlank() || expiryDate.isNotBlank() || lowStockThreshold.isNotBlank() || notes.isNotBlank()) {
+            FormDraftStore.stock = StockFormDraft(
+                selectedCategory, name, code, quantity, unit, expiryDate, lowStockThreshold, notes,
+            )
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -656,7 +739,7 @@ private fun EstoqueFormContent(onBack: () -> Unit, onSave: () -> Unit) {
             .padding(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        FormHeader(title = "Novo Item de Estoque", onBack = onBack)
+        FormHeader(title = "Novo Item de Estoque", onBack = onBack, showClose = true)
 
         FormField("Categoria") {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -672,9 +755,9 @@ private fun EstoqueFormContent(onBack: () -> Unit, onSave: () -> Unit) {
                                 modifier = Modifier.padding(10.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
-                                Text(cat.emoji, fontSize = 20.sp)
+                                Icon(stockCategoryIcon(cat), contentDescription = null, tint = if (sel) Color.Black else CurralColors.FabGreen)
                                 Text(cat.label, fontSize = 12.sp,
-                                    color = if (sel) Color.White else CurralColors.TextPrimary,
+                                    color = if (sel) Color.Black else CurralColors.TextPrimary,
                                     fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal)
                             }
                         }
@@ -692,9 +775,9 @@ private fun EstoqueFormContent(onBack: () -> Unit, onSave: () -> Unit) {
                                 modifier = Modifier.padding(10.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
-                                Text(cat.emoji, fontSize = 20.sp)
+                                Icon(stockCategoryIcon(cat), contentDescription = null, tint = if (sel) Color.Black else CurralColors.FabGreen)
                                 Text(cat.label, fontSize = 12.sp,
-                                    color = if (sel) Color.White else CurralColors.TextPrimary,
+                                    color = if (sel) Color.Black else CurralColors.TextPrimary,
                                     fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal)
                             }
                         }
@@ -714,26 +797,48 @@ private fun EstoqueFormContent(onBack: () -> Unit, onSave: () -> Unit) {
             )
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            FormField("Quantidade") {
+        FormField("Código (opcional)") {
+            OutlinedTextField(
+                value = code,
+                onValueChange = { code = it },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                placeholder = { Text("QR, código de barras ou identificação interna") },
+                trailingIcon = {
+                    IconButton(onClick = {
+                        scope.launch {
+                            when (val result = codeScanner.scan()) {
+                                is CodeScanResult.Value -> code = result.rawValue
+                                is CodeScanResult.Unavailable -> formError = result.reason
+                                CodeScanResult.Cancelled -> Unit
+                            }
+                        }
+                    }) { Icon(Icons.Default.QrCodeScanner, contentDescription = "Ler QR code ou código de barras") }
+                },
+                singleLine = true,
+            )
+        }
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.weight(1f)) { FormField("Quantidade") {
                 OutlinedTextField(
                     value = quantity,
                     onValueChange = { quantity = it.filter { c -> c.isDigit() } },
-                    modifier = Modifier.width(140.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
                     singleLine = true,
                 )
-            }
-            FormField("Unidade") {
+            } }
+            Column(Modifier.weight(1f)) { FormField("Unidade") {
                 OutlinedTextField(
                     value = unit,
                     onValueChange = { unit = it },
-                    modifier = Modifier.width(110.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
                     placeholder = { Text("kg, L, un") },
                     singleLine = true,
                 )
-            }
+            } }
         }
 
         FormField("Nível mínimo (opcional)") {
@@ -750,10 +855,10 @@ private fun EstoqueFormContent(onBack: () -> Unit, onSave: () -> Unit) {
         FormField("Data de Vencimento (opcional)") {
             OutlinedTextField(
                 value = expiryDate,
-                onValueChange = { expiryDate = it },
+                onValueChange = { expiryDate = formatDateInput(it) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp),
-                placeholder = { Text("DD/MM/AAAA") },
+                placeholder = { Text("00/00/0000") },
                 trailingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = CurralColors.NavInactive) },
                 singleLine = true,
             )
@@ -790,7 +895,9 @@ private fun EstoqueFormContent(onBack: () -> Unit, onSave: () -> Unit) {
                     unit = unit.ifBlank { "un" },
                     expiryDate = expiryIso,
                     lowStockThreshold = lowStockThreshold.toIntOrNull() ?: 0,
+                    code = code.trim().ifBlank { null },
                 )
+                FormDraftStore.stock = null
                 onSave()
             },
             modifier = Modifier.fillMaxWidth(),
@@ -801,4 +908,11 @@ private fun EstoqueFormContent(onBack: () -> Unit, onSave: () -> Unit) {
             Text("Salvar", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         }
     }
+}
+
+private fun stockCategoryIcon(category: StockCategory): ImageVector = when (category) {
+    StockCategory.RACAO -> Icons.Default.Inventory2
+    StockCategory.FERRAMENTAS -> Icons.Default.Build
+    StockCategory.REMEDIOS -> Icons.Default.Medication
+    StockCategory.OUTROS -> Icons.Default.Category
 }

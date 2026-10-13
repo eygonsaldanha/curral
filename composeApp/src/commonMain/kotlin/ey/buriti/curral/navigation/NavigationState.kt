@@ -9,4 +9,5 @@ sealed class NavigationState {
     data class GestationEdit(val animalId: String) : NavigationState()
     data object NewAnimal : NavigationState()
     data object Perfil : NavigationState()
+    data object Production : NavigationState()
 }

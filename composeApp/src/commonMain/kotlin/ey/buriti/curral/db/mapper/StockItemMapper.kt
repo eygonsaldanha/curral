@@ -7,6 +7,7 @@ import ey.buriti.curral.sync.SyncStatus
 
 fun StockItemEntity.toDomain(): StockItem = StockItem(
     id = id,
+    code = code,
     name = name,
     category = StockCategory.valueOf(category),
     quantity = quantity,
@@ -23,6 +24,7 @@ fun StockItem.toEntity(
 ): StockItemEntity = StockItemEntity(
     id = id,
     farmId = farmId,
+    code = code,
     name = name,
     category = category.name,
     quantity = quantity,

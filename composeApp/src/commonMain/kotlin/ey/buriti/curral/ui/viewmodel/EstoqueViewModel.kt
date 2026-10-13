@@ -22,11 +22,12 @@ class EstoqueViewModel(
     fun addItem(
         name: String, category: StockCategory, quantity: Int,
         unit: String, expiryDate: String?, lowStockThreshold: Int,
+        code: String? = null,
     ) = viewModelScope.launch {
         val id = stockRepo.generateId()
         stockRepo.addItem(
             StockItem(
-                id = id, name = name, category = category,
+                id = id, code = code, name = name, category = category,
                 quantity = quantity, unit = unit,
                 expiryDate = expiryDate, lowStockThreshold = lowStockThreshold,
             )

@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
@@ -28,6 +29,7 @@ import ey.buriti.curral.model.Animal
 import ey.buriti.curral.model.AnimalGroup
 import ey.buriti.curral.model.AnimalStatus
 import ey.buriti.curral.model.AnimalType
+import ey.buriti.curral.platform.getCurrentDate
 import ey.buriti.curral.ui.theme.CurralColors
 import ey.buriti.curral.ui.viewmodel.AnimaisViewModel
 import org.koin.compose.viewmodel.koinViewModel
@@ -66,13 +68,14 @@ fun AnimaisScreen(
             .fillMaxSize()
             .background(CurralColors.Background)
     ) {
-        Column(modifier = Modifier.background(CurralColors.Surface).padding(horizontal = 20.dp, vertical = 16.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
             Text(
                 "Animais",
-                fontSize = 22.sp,
+                fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = CurralColors.TextPrimary,
             )
+            Text("Gerencie o rebanho e acompanhe cada registro.", color = CurralColors.TextSecondary, fontSize = 13.sp)
             Spacer(Modifier.height(12.dp))
             AnimaisStatsRow(totalCount, healthyCount, pregnantCount)
             Spacer(Modifier.height(12.dp))
@@ -82,7 +85,6 @@ fun AnimaisScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(CurralColors.Surface)
                 .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -90,7 +92,7 @@ fun AnimaisScreen(
             TypeFilterChip(label = "Todos", isSelected = selectedType == null, onClick = { selectedType = null })
             AnimalType.entries.filter { it != AnimalType.OUTRO }.forEach { type ->
                 TypeFilterChip(
-                    label = "${type.emoji} ${type.label}",
+                    label = type.label,
                     isSelected = selectedType == type,
                     onClick = { selectedType = if (selectedType == type) null else type },
                 )
@@ -102,7 +104,6 @@ fun AnimaisScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(CurralColors.Surface)
                 .padding(horizontal = 20.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -116,7 +117,7 @@ fun AnimaisScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.White)
+                    .background(CurralColors.Background)
                     .padding(horizontal = 16.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.End,
             ) {
@@ -190,7 +191,7 @@ private fun AnimaisStatsRow(total: Int, healthy: Int, pregnant: Int) {
 
 @Composable
 private fun StatChip(label: String, value: String, bgColor: Color, textColor: Color, modifier: Modifier = Modifier) {
-    Surface(modifier = modifier, shape = RoundedCornerShape(12.dp), color = bgColor) {
+    Surface(modifier = modifier, shape = RoundedCornerShape(20.dp), color = bgColor) {
         Column(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -207,7 +208,7 @@ private fun StatChip(label: String, value: String, bgColor: Color, textColor: Co
 private fun AnimaisSearchBar(query: String, onQueryChange: (String) -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth().height(48.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(24.dp),
         color = CurralColors.SearchBackground,
     ) {
         Row(modifier = Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -300,24 +301,22 @@ private fun AnimalsListView(animals: List<Animal>, onAnimalClick: (String) -> Un
 @Composable
 internal fun AnimalListItem(animal: Animal, onClick: () -> Unit) {
     Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = CurralColors.Surface,
-        shadowElevation = 1.dp,
+        shape = RoundedCornerShape(24.dp),
+        color = CurralColors.CardSurface,
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Emoji icon
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(16.dp))
                     .background(CurralColors.SearchBackground),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(animal.type.emoji, fontSize = 26.sp)
+                Icon(Icons.Default.Pets, contentDescription = null, tint = CurralColors.FabGreen)
             }
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -379,9 +378,8 @@ private fun GroupsListView(groups: List<AnimalGroup>, onGroupClick: (String) -> 
 @Composable
 private fun GroupCard(group: AnimalGroup, onClick: () -> Unit) {
     Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = CurralColors.Surface,
-        shadowElevation = 1.dp,
+        shape = RoundedCornerShape(24.dp),
+        color = CurralColors.CardSurface,
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
     ) {
         Row(
@@ -427,9 +425,9 @@ internal fun ageLabel(birthDate: String): String {
         val parts = birthDate.split("-")
         val birthYear = parts[0].toInt()
         val birthMonth = parts[1].toInt()
-        // Approximate age using hardcoded current year/month for demo
-        val currentYear = 2026
-        val currentMonth = 5
+        val today = getCurrentDate()
+        val currentYear = today.year
+        val currentMonth = today.month
         val months = (currentYear - birthYear) * 12 + (currentMonth - birthMonth)
         if (months >= 12) "${months / 12} ano${if (months / 12 > 1) "s" else ""}"
         else "$months ${if (months == 1) "mês" else "meses"}"

@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +52,7 @@ private val TrendRed = Color(0xFFD32F2F)
 
 @Composable
 fun ProducaoScreen(
+    onBack: () -> Unit,
     modifier: Modifier = Modifier,
     vm: ProducaoViewModel = koinViewModel(),
 ) {
@@ -68,19 +71,24 @@ fun ProducaoScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            Column {
-                Text(
-                    "Produção",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = CurralColors.TextPrimary,
-                    modifier = Modifier.padding(vertical = 4.dp),
-                )
-                Text(
-                    if (entries.isEmpty()) "Nenhum registro recente" else "${entries.size} registros sincronizados",
-                    fontSize = 12.sp,
-                    color = CurralColors.TextSecondary,
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
+                }
+                Column {
+                    Text(
+                        "Produção",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = CurralColors.TextPrimary,
+                        modifier = Modifier.padding(vertical = 4.dp),
+                    )
+                    Text(
+                        if (entries.isEmpty()) "Nenhum registro recente" else "${entries.size} registros sincronizados",
+                        fontSize = 12.sp,
+                        color = CurralColors.TextSecondary,
+                    )
+                }
             }
         }
 

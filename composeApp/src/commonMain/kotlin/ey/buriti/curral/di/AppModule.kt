@@ -10,4 +10,5 @@ val appModule: List<Module> = listOf(
     apiModule,
     syncModule,
     viewModelModule,
+    platformModule,
 )

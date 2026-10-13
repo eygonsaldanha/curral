@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.map
 class EventRepositoryImpl(
     private val db: CurralDatabase,
     private val farmIdProvider: () -> String,
+    private val activityRecorder: ActivityRecorder,
 ) : IEventRepository {
 
     private val eventDao get() = db.animalEventDao()
@@ -28,10 +29,12 @@ class EventRepositoryImpl(
 
     override suspend fun addEvent(event: AnimalEvent) {
         eventDao.upsert(event.toEntity(farmId()))
+        activityRecorder.record(ey.buriti.curral.model.ActivityType.ANIMAL, ey.buriti.curral.model.ActivityAction.EVENTO, event.animalId, event.type.label, event.notes)
     }
 
     override suspend fun deleteEvent(id: String) {
         eventDao.softDelete(id, nowIso())
+        activityRecorder.record(ey.buriti.curral.model.ActivityType.ANIMAL, ey.buriti.curral.model.ActivityAction.EXCLUIDO, id, "Evento removido")
     }
 
     override suspend fun generateEventId(): String = "e${nowIso().replace(":", "-")}"

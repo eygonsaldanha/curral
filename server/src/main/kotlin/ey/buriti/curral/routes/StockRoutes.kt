@@ -30,6 +30,7 @@ fun Route.stockRoutes() {
                 StockItems.upsert {
                     it[StockItems.id] = dto.id
                     it[StockItems.farmId] = farmId
+                    it[StockItems.code] = dto.code
                     it[StockItems.name] = dto.name
                     it[StockItems.category] = dto.category
                     it[StockItems.quantity] = dto.quantity
@@ -50,6 +51,7 @@ fun Route.stockRoutes() {
             val now = nowIso()
             transaction {
                 StockItems.update({ (StockItems.id eq id) and (StockItems.farmId eq farmId) }) {
+                    it[StockItems.code] = dto.code
                     it[StockItems.name] = dto.name
                     it[StockItems.category] = dto.category
                     it[StockItems.quantity] = dto.quantity
@@ -81,6 +83,7 @@ fun Route.stockRoutes() {
 private fun ResultRow.toDto() = StockItemDto(
     id = this[StockItems.id],
     farmId = this[StockItems.farmId],
+    code = this[StockItems.code],
     name = this[StockItems.name],
     category = this[StockItems.category],
     quantity = this[StockItems.quantity],

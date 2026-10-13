@@ -74,6 +74,7 @@ fun ProducaoEntryDto.toDomain(): ProducaoEntry = ProducaoEntry(
 
 fun StockItemDto.toDomain(): StockItem = StockItem(
     id = id,
+    code = code,
     name = name,
     category = StockCategory.valueOf(category),
     quantity = quantity,

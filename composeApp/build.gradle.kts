@@ -36,6 +36,7 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.activity.compose)
             implementation(libs.workmanager.ktx)
+            implementation(libs.google.code.scanner)
             implementation(libs.koin.android)
             implementation(libs.ktor.client.okhttp)
         }
@@ -69,6 +70,7 @@ kotlin {
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
+            implementation(libs.sqlite.bundled)
         }
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)

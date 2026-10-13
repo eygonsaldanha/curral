@@ -9,12 +9,14 @@ import ey.buriti.curral.model.AnimalGroup
 import ey.buriti.curral.model.Gestation
 import ey.buriti.curral.util.nowIso
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
 
 class AnimalRepositoryImpl(
     private val db: CurralDatabase,
     private val farmIdProvider: () -> String,
+    private val activityRecorder: ActivityRecorder,
 ) : IAnimalRepository {
 
     private val animalDao get() = db.animalDao()
@@ -32,14 +34,18 @@ class AnimalRepositoryImpl(
 
     override suspend fun addAnimal(animal: Animal) {
         animalDao.upsert(animal.toEntity(farmId()))
+        activityRecorder.record(ey.buriti.curral.model.ActivityType.ANIMAL, ey.buriti.curral.model.ActivityAction.CRIADO, animal.id, "Animal cadastrado", animal.tagNumber, animal.name)
     }
 
     override suspend fun updateAnimal(animal: Animal) {
         animalDao.upsert(animal.toEntity(farmId()))
+        activityRecorder.record(ey.buriti.curral.model.ActivityType.ANIMAL, ey.buriti.curral.model.ActivityAction.ATUALIZADO, animal.id, "Animal atualizado", animal.tagNumber, animal.name)
     }
 
     override suspend fun deleteAnimal(id: String) {
+        val animal = animalDao.getById(id).first()?.toDomain()
         animalDao.softDelete(id, nowIso())
+        activityRecorder.record(ey.buriti.curral.model.ActivityType.ANIMAL, ey.buriti.curral.model.ActivityAction.EXCLUIDO, id, "Animal removido", subjectName = animal?.name.orEmpty())
     }
 
     override fun getGroupsForAnimal(animalId: String): Flow<List<AnimalGroup>> =

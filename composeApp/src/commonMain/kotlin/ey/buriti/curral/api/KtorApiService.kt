@@ -1,6 +1,5 @@
 package ey.buriti.curral.api
 
-import ey.buriti.curral.API_BASE_URL
 import ey.buriti.curral.auth.IAuthRepository
 import ey.buriti.curral.dto.AnimalDto
 import ey.buriti.curral.dto.AnimalEventDto
@@ -27,7 +26,7 @@ import kotlinx.serialization.json.Json
 
 class KtorApiService(
     private val authRepository: IAuthRepository,
-    private val baseUrl: String = API_BASE_URL,
+    private val baseUrl: String,
 ) : IApiService {
 
     private val client = HttpClient {

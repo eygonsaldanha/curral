@@ -11,6 +11,7 @@ data class SyncPushPayload(
     val gestations: List<GestationDto> = emptyList(),
     val producao: List<ProducaoEntryDto> = emptyList(),
     val stock: List<StockItemDto> = emptyList(),
+    val activities: List<ActivityLogDto> = emptyList(),
 )
 
 /** Retornado pelo servidor após um push ou pull. */
@@ -22,6 +23,7 @@ data class SyncResponse(
     val gestations: List<GestationDto> = emptyList(),
     val producao: List<ProducaoEntryDto> = emptyList(),
     val stock: List<StockItemDto> = emptyList(),
+    val activities: List<ActivityLogDto> = emptyList(),
     /** IDs que chegaram com versão em conflito (server-wins, mobile deve sobrescrever). */
     val conflicts: List<String> = emptyList(),
 )

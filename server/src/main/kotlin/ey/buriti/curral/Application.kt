@@ -3,6 +3,7 @@ package ey.buriti.curral
 import com.auth0.jwk.JwkProviderBuilder
 import ey.buriti.curral.db.DatabaseFactory
 import ey.buriti.curral.routes.animalRoutes
+import ey.buriti.curral.routes.activityRoutes
 import ey.buriti.curral.routes.eventRoutes
 import ey.buriti.curral.routes.farmRoutes
 import ey.buriti.curral.routes.gestationRoutes
@@ -30,7 +31,11 @@ fun main() {
 }
 
 fun Application.module() {
-    DatabaseFactory.init()
+    module(initializeDatabase = true)
+}
+
+fun Application.module(initializeDatabase: Boolean) {
+    if (initializeDatabase) DatabaseFactory.init()
     configurePlugins()
     configureAuth()
     configureRouting()
@@ -93,6 +98,7 @@ fun Application.configureRouting() {
             gestationRoutes()
             producaoRoutes()
             stockRoutes()
+            activityRoutes()
             syncRoutes()
         }
     }
